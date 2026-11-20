@@ -1,0 +1,149 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "Réduire la barre latérale" [ref=e9]
+          - button "Session précédente" [disabled] [ref=e12]
+          - button "Session suivante" [disabled] [ref=e15]
+        - tablist "Mode d’interface" [ref=e18]:
+          - tab "Mode Chat" [ref=e19]
+          - tab "Mode Code" [selected] [ref=e22]
+      - generic [ref=e27]:
+        - button "Nouveau" [ref=e28]
+        - button "Rechercher" [ref=e31]
+        - button "Personnaliser" [ref=e36]
+        - button "Importer des chats" [ref=e41]
+        - button "Plus" [ref=e47]
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - button "mon-site-web" [ref=e56]
+          - button "Nouvelle session dans cet espace" [ref=e60]
+        - 'button "btw: Que fait --bg ?" [ref=e62]'
+        - navigation "Sessions Code" [ref=e64]:
+          - generic [ref=e65]:
+            - button "Ajouter un mode sombre au site" [ref=e66]
+            - button "Options pour Ajouter un mode sombre au site" [ref=e68]
+          - generic [ref=e73]:
+            - button "Ajouter un pied de page au site" [ref=e74]
+            - button "Options pour Ajouter un pied de page au site" [ref=e76]
+          - generic [ref=e81]:
+            - button "Rendre le menu mobile responsive" [ref=e82]
+            - button "Options pour Rendre le menu mobile responsive" [ref=e84]
+          - generic [ref=e89]:
+            - button "Mettre à jour les outils de build Validation requise" [ref=e90]:
+              - generic [ref=e91]: Mettre à jour les outils de build
+              - generic "Validation requise" [ref=e92]
+            - button "Options pour Mettre à jour les outils de build" [ref=e93]
+          - generic [ref=e98]:
+            - button "Écrire le README du projet" [ref=e99]
+            - button "Options pour Écrire le README du projet" [ref=e101]
+      - generic [ref=e106]:
+        - button "Menu du compte utilisateur" [ref=e107]:
+          - generic [ref=e110]: Gaoussou
+          - generic [ref=e111]: · FCC
+        - button "Ouvrir les paramètres" [ref=e114]
+  - main [ref=e119]:
+    - generic [ref=e121]:
+      - generic [ref=e122]:
+        - button "Ajouter un mode sombre au site" [ref=e124]
+        - generic [ref=e128]:
+          - button "Panneau session & contexte" [ref=e129]
+          - button "Terminal (démo)" [ref=e132]
+          - button "Changements & diff" [ref=e135]
+          - button "Aperçu en direct (démo)" [ref=e137]
+          - button "Fichiers de l’espace" [ref=e140]
+          - button "Plus d’actions de session" [ref=e143]
+      - generic [ref=e149]:
+        - generic [ref=e150]:
+          - generic [ref=e151]: Démarré dans l’espace de démo · mon-site-web ·
+          - button "Enregistrer comme environnement" [ref=e152]
+        - generic [ref=e153]: Ajoute un mode sombre à mon site web qui suit automatiquement le réglage système
+        - article [ref=e155]:
+          - paragraph [ref=e156]: Bien sûr. Je regarde d’abord la structure actuelle de la page et ses styles.
+          - generic [ref=e157]:
+            - button "2 fichiers lus, 1 fichier modifié, 1 commande exécutée +11 -1" [ref=e158]:
+              - generic [ref=e159]: 2 fichiers lus, 1 fichier modifié, 1 commande exécutée
+              - generic [ref=e160]:
+                - generic [ref=e161]: "+11"
+                - generic [ref=e162]: "-1"
+            - generic [ref=e165]:
+              - button "Lu index.html" [ref=e167]:
+                - generic [ref=e168]: Lu
+                - generic [ref=e169]: index.html
+              - button "Lu style.css" [ref=e173]:
+                - generic [ref=e174]: Lu
+                - generic [ref=e175]: style.css
+              - button "Modifié style.css +11 -1" [ref=e179]:
+                - generic [ref=e180]: Modifié
+                - generic [ref=e181]: style.css
+                - generic [ref=e182]:
+                  - generic [ref=e183]: "+11"
+                  - generic [ref=e184]: "-1"
+              - button "Exécuté npm test" [ref=e188]:
+                - generic [ref=e189]: Exécuté
+                - generic [ref=e190]: npm test
+          - generic [ref=e194]:
+            - paragraph [ref=e195]: Le mode sombre est en place.
+            - heading "Ce qui a changé" [level=4] [ref=e196]
+            - list [ref=e197]:
+              - listitem [ref=e198]:
+                - text: Dans
+                - code [ref=e199]: style.css
+                - text: ", les couleurs utilisent maintenant des variables ("
+                - code [ref=e200]: "--bg"
+                - text: ","
+                - code [ref=e201]: "--text"
+                - text: ).
+              - listitem [ref=e202]: Lorsque le système bascule en sombre, la page adopte un fond charbon doux avec un texte clair lisible.
+            - heading "Comment vérifier" [level=4] [ref=e203]
+            - table [ref=e205]:
+              - rowgroup [ref=e206]:
+                - row [ref=e207]:
+                  - columnheader "Apparence système" [ref=e208]
+                  - columnheader "Fond de page" [ref=e209]
+                  - columnheader "Couleur du texte" [ref=e210]
+              - rowgroup [ref=e211]:
+                - row [ref=e212]:
+                  - cell "Clair" [ref=e213]
+                  - cell [ref=e214]:
+                    - text: Blanc (
+                    - code [ref=e215]: "#ffffff"
+                    - text: )
+                  - cell [ref=e216]:
+                    - text: Gris foncé (
+                    - code [ref=e217]: "#222222"
+                    - text: )
+                - row [ref=e218]:
+                  - cell "Sombre" [ref=e219]
+                  - cell [ref=e220]:
+                    - text: Gris charbon (
+                    - code [ref=e221]: "#1a1a1a"
+                    - text: )
+                  - cell [ref=e222]:
+                    - text: Blanc cassé (
+                    - code [ref=e223]: "#f2f2f2"
+                    - text: )
+            - paragraph [ref=e224]:
+              - text: Basculez le thème dans
+              - strong [ref=e225]: Paramètres › Apparence
+              - text: (ou via le menu du compte) pour observer la transition.
+          - generic [ref=e227]:
+            - button "style.css" [ref=e228]
+            - generic [ref=e234]:
+              - button "Annuler" [ref=e235]
+              - generic [ref=e236]:
+                - generic [ref=e237]: "+11"
+                - generic [ref=e238]: "-1"
+      - generic [ref=e240]:
+        - generic [ref=e241]:
+          - button "Joindre un fichier" [ref=e242]
+          - textbox "Message ou commande slash" [ref=e244]:
+            - /placeholder: Tapez / pour les commandes
+          - button "Dictée vocale (démo)" [ref=e246]
+        - generic [ref=e251]:
+          - 'button "Modèle et effort : Gemini 4 Flash, Élevé" [ref=e253]':
+            - generic [ref=e254]: Gemini 4 Flash
+            - generic [ref=e255]: Élevé
+          - 'button "Mode de permission : Manuel" [ref=e257]': Manuel
+          - 'button "Contexte utilisé : 28%" [ref=e258]'

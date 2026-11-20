@@ -1,0 +1,8 @@
+{
+  "name": "Claude",
+  "description": "Interface web fidèle à Claude Desktop avec thèmes clair et sombre, gestion des projets, artefacts, recherche et architecture prête pour FCC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

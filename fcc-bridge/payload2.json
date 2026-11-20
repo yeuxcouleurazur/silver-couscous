@@ -1,0 +1,1 @@
+{"conversationId":"conv-test-2","prompt":"Dis simplement Bonjour le monde","modelId":"claude-haiku-4-5","tools":{"webSearch":false,"extendedThinking":false,"artifacts":false,"responseStyle":"concis"},"attachments":[],"permissionMode":"plan"}

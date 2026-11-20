@@ -1,0 +1,6 @@
+: fcc-bridge stream connected
+
+data: {"type":"error","message":"OPENROUTER_API_KEY is not set. Add it in the Admin UI. Get a key at https://openrouter.ai/keys"}
+
+data: [DONE]
+

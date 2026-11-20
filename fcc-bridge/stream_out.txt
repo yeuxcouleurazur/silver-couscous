@@ -1,0 +1,6 @@
+: fcc-bridge stream connected
+
+data: {"type":"error","message":"[object Object]"}
+
+data: [DONE]
+

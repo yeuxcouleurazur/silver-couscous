@@ -1,0 +1,1 @@
+{"type":"error","error":{"type":"api_error","message":"OPENROUTER_API_KEY is not set. Add it in the Admin UI. Get a key at https://openrouter.ai/keys"},"request_id":"req_8d48145b8f3049bba83e795076048b76"}

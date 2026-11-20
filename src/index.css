@@ -1,0 +1,335 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Claude Desktop — Warm Parchment Light Theme */
+  --claude-bg: #FAF9F5;
+  --claude-bg-elevated: #FFFFFF;
+  --claude-sidebar: #F4F3ED;
+  --claude-sidebar-hover: #EAE8DF;
+  --claude-sidebar-active: #E5E3D8;
+  --claude-user-bubble: #F0EEE6;
+  --claude-surface-subtle: #F3F1E9;
+  --claude-code-bg: #F4F3EC;
+  --claude-code-header: #EBE9DF;
+  --claude-border: rgba(61, 57, 41, 0.11);
+  --claude-border-strong: rgba(61, 57, 41, 0.2);
+  --claude-text-primary: #141413;
+  --claude-text-secondary: #5E5D59;
+  --claude-text-muted: #87857E;
+  --claude-accent: #D97757;
+  --claude-accent-hover: #C66444;
+  --claude-accent-soft: rgba(217, 119, 87, 0.12);
+  --claude-composer-shadow: 0 2px 12px rgba(20, 20, 19, 0.045), 0 0 0 1px rgba(61, 57, 41, 0.12);
+  --claude-composer-focus-shadow: 0 4px 18px rgba(20, 20, 19, 0.07), 0 0 0 1px rgba(61, 57, 41, 0.24);
+  --claude-popover-shadow: 0 10px 30px -6px rgba(20, 20, 19, 0.12), 0 2px 8px -2px rgba(20, 20, 19, 0.06);
+  --claude-inline-code-bg: rgba(61, 57, 41, 0.075);
+  --claude-inline-code-text: #B84D2C;
+  --claude-scrollbar-thumb: rgba(61, 57, 41, 0.18);
+  --claude-scrollbar-thumb-hover: rgba(61, 57, 41, 0.3);
+
+  /* OpenClaudeDesktop 4.x semantic tokens */
+  --cds-diff-add-text: #188038;
+  --cds-diff-add-badge: #E4F4E8;
+  --cds-diff-add-line: rgba(13, 190, 78, 0.12);
+  --cds-diff-del-text: #C5221F;
+  --cds-diff-del-badge: #FCE8E8;
+  --cds-diff-del-line: rgba(255, 46, 63, 0.11);
+  --cds-effort-text: #5B4BD6;
+  --cds-permission-text: #9A6B2F;
+  --cds-warning-dot: #E0912E;
+  --cds-warning-bg: rgba(224, 145, 46, 0.12);
+
+  --font-serif-claude: "Newsreader", "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-sans-claude: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono-claude: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+[data-surface="code"] {
+  --claude-bg: #FFFFFF;
+  --claude-bg-elevated: #FFFFFF;
+  --claude-sidebar: #F7F7F7;
+  --claude-sidebar-hover: #EFEFED;
+  --claude-sidebar-active: #E6E6E4;
+  --claude-user-bubble: #F2F2F0;
+  --claude-surface-subtle: #F4F4F2;
+  --claude-code-bg: #F6F6F4;
+  --claude-code-header: #EFEFED;
+  --claude-border: rgba(0, 0, 0, 0.085);
+  --claude-border-strong: rgba(0, 0, 0, 0.16);
+  --claude-text-primary: #1A1A19;
+  --claude-text-secondary: #5B5B58;
+  --claude-text-muted: #8A8A86;
+  --claude-inline-code-bg: rgba(180, 72, 42, 0.075);
+  --claude-inline-code-text: #9C3A24;
+  --claude-composer-shadow: 0 1px 4px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  --claude-composer-focus-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.dark {
+  /* Claude Desktop — Warm Charcoal Dark Theme */
+  --claude-bg: #262624;
+  --claude-bg-elevated: #30302E;
+  --claude-sidebar: #1F1E1D;
+  --claude-sidebar-hover: #2B2A28;
+  --claude-sidebar-active: #33322F;
+  --claude-user-bubble: #141413;
+  --claude-surface-subtle: #2C2B29;
+  --claude-code-bg: #1B1B19;
+  --claude-code-header: #232320;
+  --claude-border: rgba(242, 239, 229, 0.09);
+  --claude-border-strong: rgba(242, 239, 229, 0.17);
+  --claude-text-primary: #EEEDE8;
+  --claude-text-secondary: #B2B0A8;
+  --claude-text-muted: #7F7D76;
+  --claude-accent: #D97757;
+  --claude-accent-hover: #E08669;
+  --claude-accent-soft: rgba(217, 119, 87, 0.16);
+  --claude-composer-shadow: 0 2px 14px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(242, 239, 229, 0.11);
+  --claude-composer-focus-shadow: 0 4px 20px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(242, 239, 229, 0.22);
+  --claude-popover-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.55), 0 2px 10px -2px rgba(0, 0, 0, 0.35);
+  --claude-inline-code-bg: rgba(242, 239, 229, 0.09);
+  --claude-inline-code-text: #E9967A;
+  --claude-scrollbar-thumb: rgba(242, 239, 229, 0.14);
+  --claude-scrollbar-thumb-hover: rgba(242, 239, 229, 0.26);
+
+  /* OpenClaudeDesktop 4.x Dark semantic tokens */
+  --cds-diff-add-text: #5ECC71;
+  --cds-diff-add-badge: rgba(94, 204, 113, 0.15);
+  --cds-diff-add-line: rgba(94, 204, 113, 0.14);
+  --cds-diff-del-text: #FF6762;
+  --cds-diff-del-badge: rgba(255, 103, 98, 0.16);
+  --cds-diff-del-line: rgba(255, 103, 98, 0.15);
+  --cds-effort-text: #A297F5;
+  --cds-permission-text: #D7A052;
+  --cds-warning-dot: #E5A03D;
+  --cds-warning-bg: rgba(229, 160, 61, 0.16);
+}
+
+.dark [data-surface="code"] {
+  --claude-bg: #1A1A19;
+  --claude-bg-elevated: #242422;
+  --claude-sidebar: #1F1F1E;
+  --claude-sidebar-hover: #2A2A28;
+  --claude-sidebar-active: #323230;
+  --claude-user-bubble: #2A2A28;
+  --claude-surface-subtle: #272725;
+  --claude-code-bg: #161615;
+  --claude-code-header: #20201E;
+  --claude-border: rgba(255, 255, 255, 0.09);
+  --claude-border-strong: rgba(255, 255, 255, 0.17);
+  --claude-text-primary: #ECECE8;
+  --claude-text-secondary: #A5A5A0;
+  --claude-text-muted: #767671;
+  --claude-inline-code-bg: rgba(233, 150, 122, 0.11);
+  --claude-inline-code-text: #E9967A;
+  --claude-composer-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.11);
+  --claude-composer-focus-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--claude-bg);
+  color: var(--claude-text-primary);
+  font-family: var(--font-sans-claude);
+  transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark body {
+  letter-spacing: 0.005em;
+}
+
+.font-claude-serif {
+  font-family: var(--font-serif-claude);
+  font-optical-sizing: auto;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.font-claude-sans {
+  font-family: var(--font-sans-claude);
+}
+
+.font-claude-mono {
+  font-family: var(--font-mono-claude);
+}
+
+.font-claude-dyslexic {
+  font-family: var(--font-sans-claude);
+  letter-spacing: 0.04em;
+  word-spacing: 0.12em;
+  line-height: 1.8;
+}
+
+/* Custom subtle Claude scrollbars */
+.claude-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--claude-scrollbar-thumb) transparent;
+}
+
+.claude-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.claude-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.claude-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--claude-scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+.claude-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--claude-scrollbar-thumb-hover);
+}
+
+/* Claude starburst streaming pulse */
+@keyframes claude-spark-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.06);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.animate-claude-spark {
+  animation: claude-spark-spin 3.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+/* Streaming cursor blink */
+@keyframes claude-cursor-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.animate-claude-cursor {
+  animation: claude-cursor-pulse 1s ease-in-out infinite;
+}
+
+/* Compositor-only Claude Desktop UI animations */
+@keyframes claude-fade-up {
+  from {
+    opacity: 0.35;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes claude-popover-enter {
+  from {
+    opacity: 0.4;
+    transform: translateY(3px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes claude-modal-enter {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes claude-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes claude-slide-right {
+  from {
+    opacity: 0.4;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes claude-slide-left {
+  from {
+    opacity: 0.5;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.claude-animate-fade-up {
+  animation: claude-fade-up 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.claude-animate-popover {
+  animation: claude-popover-enter 110ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.claude-animate-modal {
+  animation: claude-modal-enter 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.claude-animate-backdrop {
+  animation: claude-backdrop-enter 120ms ease-out both;
+}
+
+.claude-animate-slide-right {
+  animation: claude-slide-right 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.claude-animate-slide-left {
+  animation: claude-slide-left 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Focus ring discipline (composer textarea delegates focus visual to its outer card) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:not(.claude-composer-input):focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(217, 119, 87, 0.65);
+  outline-offset: 2px;
+}
+
+textarea.claude-composer-input:focus-visible {
+  outline: none;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
