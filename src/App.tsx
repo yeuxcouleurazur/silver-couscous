@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanelLeft, PanelRight, Paperclip, Plus } from 'lucide-react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelLeft, PanelRight, Paperclip, Plus, AlertCircle, CheckCircle, XCircle, Loader2, FolderOpen, ExternalLink } from 'lucide-react';
 import type {
   AppSurfaceMode,
   Attachment,
   CodeSession,
   CodeTurn,
+  CodeWorkspace,
   EffortLevel,
   ModelConfig,
   ModelId,
@@ -13,6 +14,10 @@ import type {
   SettingsSectionId,
   ThemeMode,
   ToolSettings,
+  ToolCall,
+  ToolName,
+  ToolPermissionRequest,
+  ToolResult,
   UserPreferences,
 } from './types/claude';
 import { DEFAULT_PREFERENCES } from './data/demoData';
@@ -30,13 +35,22 @@ import {
 import {
   createClaudeAdapter,
   fetchFccModels,
+  getKnownClaudeModels,
   type ConversationHistoryTurn,
-} from './services/fccAdapter';
+  dotBrainPublicApi,
+  // Tool executor
+  buildToolDefinitionsPrompt,
+  parseToolCalls,
+  stripToolCalls,
+  executeToolCalls,
+} from './services';
 import { CodeSidebar } from './components/CodeSidebar';
 import { CodeHomeView } from './components/CodeHomeView';
 import { CodeSessionView } from './components/CodeSessionView';
 import { CodeRightPane } from './components/CodeRightPane';
 import { CustomizeView } from './components/CustomizeView';
+import { DotBrainSurface } from './components/desktop/DotBrainSurface';
+import { agentOrchestrator } from './services/agentOrchestrator';
 import { ImportChatsModal } from './components/ImportChatsModal';
 import { SearchModal } from './components/SearchModal';
 import { SettingsModal } from './components/SettingsModal';
@@ -58,25 +72,41 @@ function loadStored<T>(key: string, fallback: T): T {
 }
 
 export default function App() {
-  const [preferences, setPreferences] = useState<UserPreferences>(() =>
-    loadStored(STORAGE_KEYS.preferences, DEFAULT_PREFERENCES)
-  );
+  const [preferences, setPreferences] = useState<UserPreferences>(() => {
+    const stored = loadStored(STORAGE_KEYS.preferences, DEFAULT_PREFERENCES);
+    // Migration: ensure FCC endpoint is configured if mode is 'fcc' but endpointUrl is empty
+    if (stored.fcc.mode === 'fcc' && !stored.fcc.endpointUrl.trim()) {
+      return {
+        ...stored,
+        fcc: {
+          ...stored.fcc,
+          endpointUrl: 'http://localhost:8787/v1/claude/stream',
+        },
+      };
+    }
+    return stored;
+  });
   const [codeSessions, setCodeSessions] = useState<CodeSession[]>(() =>
     loadStored(STORAGE_KEYS.codeSessions, INITIAL_CODE_SESSIONS)
   );
 
+  // Workspace state - dynamic, user can add folders
+  const [workspaces, setWorkspaces] = useState<CodeWorkspace[]>(() =>
+    loadStored('claude_desktop_clone_workspaces_v1', INITIAL_CODE_WORKSPACES)
+  );
+
   // Unified OpenClaudeDesktop 4.x interface:
   // 'code' = full workspace with right rail/diffs, 'chat' = focused view in the same shell
-  const [surfaceMode, setSurfaceMode] = useState<AppSurfaceMode>('code');
+  const [surfaceMode, setSurfaceMode] = useState<AppSurfaceMode>('agents');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Workspace & session state
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(
-    INITIAL_CODE_WORKSPACES[0].id
+    workspaces[0]?.id || ''
   );
   const [activeCodeSessionId, setActiveCodeSessionId] = useState<string | null>(
-    INITIAL_CODE_SESSIONS[0].id
+    codeSessions[0]?.id ?? null
   );
   const [codeSubPage, setCodeSubPage] = useState<'session' | 'customize'>('session');
   const [rightPane, setRightPane] = useState<RightPaneMode>(() =>
@@ -84,12 +114,16 @@ export default function App() {
   );
   const [contextExpanded, setContextExpanded] = useState(false);
   const [activeSideChatId, setActiveSideChatId] = useState<string | null>(
-    INITIAL_CODE_SESSIONS[0].sideChats[0]?.id ?? null
+    codeSessions[0]?.sideChats[0]?.id ?? null
   );
   const [navHistory, setNavHistory] = useState<Array<string | null>>([
-    INITIAL_CODE_SESSIONS[0].id,
+    codeSessions[0]?.id ?? null,
   ]);
   const [navHistoryIndex, setNavHistoryIndex] = useState(0);
+
+  // Folder picker modal
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [folderPickerPath, setFolderPickerPath] = useState<string>('');
 
   // Composer / model controls
   const [modelId, setModelId] = useState<ModelId>('gemini-4-hydrogen');
@@ -109,15 +143,20 @@ export default function App() {
   // Modèles découverts en direct depuis le bridge FCC (mode 'fcc' uniquement)
   const [fccModels, setFccModels] = useState<ModelConfig[]>([]);
 
+  // Tool execution state
+  const [pendingToolPermissions, setPendingToolPermissions] = useState<ToolPermissionRequest[]>([]);
+  const [toolCallResults, setToolCallResults] = useState<Map<string, ToolResult>>(new Map());
+  const [isExecutingTools, setIsExecutingTools] = useState(false);
+
+  // Workspace root for file operations (set via Vite define at build time)
+  const workspaceRootRef = useRef(import.meta.env.VITE_WORKSPACE_ROOT || '.');
+
   useEffect(() => {
     let cancelled = false;
-    if (preferences.fcc.mode === 'fcc' && preferences.fcc.endpointUrl.trim().length > 0) {
-      fetchFccModels(preferences.fcc.endpointUrl).then((models) => {
-        if (!cancelled) setFccModels(models);
-      });
-    } else {
-      setFccModels([]);
-    }
+    // Always fetch models: from FCC bridge when configured, or known Claude models as fallback
+    fetchFccModels(preferences.fcc.endpointUrl).then((models) => {
+      if (!cancelled) setFccModels(models);
+    });
     return () => {
       cancelled = true;
     };
@@ -148,6 +187,17 @@ export default function App() {
     }
   }, [preferences]);
 
+  // Initialize Dot Brain with the current FCC configuration so agents can
+  // make real model calls. Re-init when FCC settings change.
+  useEffect(() => {
+    agentOrchestrator.init({
+      mode: preferences.fcc.mode,
+      endpointUrl: preferences.fcc.endpointUrl,
+      workspaceLabel: preferences.fcc.workspaceLabel,
+      sendWithCredentials: preferences.fcc.sendWithCredentials,
+    });
+  }, [preferences.fcc.mode, preferences.fcc.endpointUrl]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEYS.codeSessions, JSON.stringify(codeSessions));
@@ -155,6 +205,15 @@ export default function App() {
       // ignore
     }
   }, [codeSessions]);
+
+  // Persist workspaces
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('claude_desktop_clone_workspaces_v1', JSON.stringify(workspaces));
+    } catch {
+      // ignore
+    }
+  }, [workspaces]);
 
   // Sync light / dark / system theme onto <html class="dark">
   useEffect(() => {
@@ -241,6 +300,71 @@ export default function App() {
     setAttachments([]);
   }, [handleStopGeneration, pushCodeHistory]);
 
+  const handleOpenFolderPicker = useCallback(() => {
+    setFolderPickerOpen(true);
+    setFolderPickerPath('');
+  }, []);
+
+  const handleFolderPickerConfirm = useCallback(async () => {
+    if (!folderPickerPath.trim()) return;
+
+    try {
+      // Call server API to set workspace root
+      const response = await fetch('/api/fs/workspace-root', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: folderPickerPath.trim() }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        showToast(data.error || 'Erreur lors de l\'ouverture du dossier');
+        return;
+      }
+
+      // Create a new workspace entry
+      const newWorkspace: CodeWorkspace = {
+        id: `ws-${Date.now()}`,
+        name: folderPickerPath.trim().split(/[\\/]/).pop() || 'Nouveau dossier',
+        pathLabel: folderPickerPath.trim(),
+        branch: 'main',
+        environmentLabel: 'Local',
+        files: [],
+      };
+
+      setWorkspaces((prev) => [...prev, newWorkspace]);
+      setActiveWorkspaceId(newWorkspace.id);
+
+      // Create a new session for this workspace
+      const newSession: CodeSession = {
+        id: `session-${Date.now()}`,
+        workspaceId: newWorkspace.id,
+        title: 'Nouvelle session',
+        updatedAt: new Date().toISOString(),
+        originLabel: 'local',
+        contextLimitTokens: 200000,
+        contextCategories: [],
+        mcpToolsCount: 0,
+        memoryFilesCount: 0,
+        outputs: [],
+        diffs: [],
+        terminalLines: [],
+        turns: [],
+        sideChats: [],
+      };
+
+      setCodeSessions((prev) => [newSession, ...prev]);
+      pushCodeHistory(newSession.id);
+      setRightPane('none');
+
+      setFolderPickerOpen(false);
+      showToast(`Dossier ouvert : ${newWorkspace.name}`);
+    } catch (err) {
+      showToast('Erreur lors de l\'ouverture du dossier');
+      console.error(err);
+    }
+  }, [folderPickerPath, pushCodeHistory, showToast]);
+
   // Global Claude Desktop keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -286,9 +410,10 @@ export default function App() {
 
   const activeWorkspace = useMemo(
     () =>
-      INITIAL_CODE_WORKSPACES.find((w) => w.id === activeWorkspaceId) ??
-      INITIAL_CODE_WORKSPACES[0],
-    [activeWorkspaceId]
+      workspaces.find((w) => w.id === activeWorkspaceId) ??
+      workspaces[0] ??
+      { id: '', name: 'Aucun dossier', pathLabel: '', branch: '', environmentLabel: '', files: [] },
+    [activeWorkspaceId, workspaces]
   );
 
   const activeCodeSession = useMemo(
@@ -296,7 +421,7 @@ export default function App() {
     [codeSessions, activeCodeSessionId]
   );
 
-  // Stream into Code Session
+  // Stream into Code Session with tool execution support
   const runCodeTurnStream = useCallback(
     async (params: {
       sessionId: string;
@@ -309,30 +434,140 @@ export default function App() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
       setIsGenerating(true);
+      setIsExecutingTools(false);
 
       const adapter = createClaudeAdapter(preferences.fcc);
+      const workspaceRoot = workspaceRootRef.current;
+
+      // Permission request handler
+      const requestPermission = async (permRequest: ToolPermissionRequest): Promise<'approved-once' | 'approved-session' | 'denied'> => {
+        return new Promise((resolve) => {
+          setPendingToolPermissions((prev) => [
+            ...prev,
+            { ...permRequest, status: 'pending' },
+          ]);
+
+          // Wait for user decision
+          const checkDecision = setInterval(() => {
+            setPendingToolPermissions((current) => {
+              const req = current.find((r) => r.id === permRequest.id);
+              if (req && req.status !== 'pending') {
+                clearInterval(checkDecision);
+                resolve(req.status);
+                setPendingToolPermissions((c) => c.filter((r) => r.id !== permRequest.id));
+                return current;
+              }
+              return current;
+            });
+          }, 100);
+        });
+      };
 
       try {
-        const stream = adapter.sendMessageStream(
-          {
-            conversationId: params.sessionId,
-            prompt: params.prompt,
-            history: params.history,
-            modelId,
-            effort,
-            permissionMode,
-            tools: {
-              ...tools,
-              extendedThinking: effort === 'high' || effort === 'max',
-            },
-            attachments: params.usedAttachments,
-            projectName: activeWorkspace.name,
-          },
-          controller.signal
-        );
+        // Build the enhanced prompt with tool definitions
+        const toolPrompt = buildToolDefinitionsPrompt();
+        const enhancedPrompt = `${params.prompt}\n\n${toolPrompt}`;
 
-        for await (const event of stream) {
-          if (event.type === 'text_delta') {
+        let currentPrompt = enhancedPrompt;
+        let currentHistory = params.history;
+        let turnContent = '';
+        let accumulatedThinking = '';
+        const thinkingStart = Date.now();
+        let hasToolCalls = false;
+
+        // Tool execution loop - continue until no more tool calls
+        while (true) {
+          const stream = adapter.sendMessageStream(
+            {
+              conversationId: params.sessionId,
+              prompt: currentPrompt,
+              history: currentHistory,
+              modelId,
+              effort,
+              permissionMode,
+              tools: {
+                ...tools,
+                extendedThinking: effort === 'high' || effort === 'max',
+              },
+              attachments: params.usedAttachments,
+              projectName: activeWorkspace.name,
+            },
+            controller.signal
+          );
+
+          turnContent = '';
+          accumulatedThinking = '';
+          hasToolCalls = false;
+
+          for await (const event of stream) {
+            if (event.type === 'thinking_delta') {
+              accumulatedThinking += event.delta;
+              setCodeSessions((prev) =>
+                prev.map((sess) =>
+                  sess.id !== params.sessionId
+                    ? sess
+                    : {
+                        ...sess,
+                        turns: sess.turns.map((t) =>
+                          t.id === params.turnId
+                            ? { ...t, thinking: accumulatedThinking, isStreaming: true }
+                            : t
+                        ),
+                      }
+                )
+              );
+            } else if (event.type === 'text_delta') {
+              turnContent += event.delta;
+              setCodeSessions((prev) =>
+                prev.map((sess) =>
+                  sess.id !== params.sessionId
+                    ? sess
+                    : {
+                        ...sess,
+                        turns: sess.turns.map((t) =>
+                          t.id === params.turnId
+                            ? { ...t, content: turnContent, isStreaming: true }
+                            : t
+                        ),
+                      }
+                )
+              );
+            } else if (event.type === 'usage') {
+              setCodeSessions((prev) =>
+                prev.map((sess) =>
+                  sess.id !== params.sessionId
+                    ? sess
+                    : {
+                        ...sess,
+                        turns: sess.turns.map((t) =>
+                          t.id === params.turnId
+                            ? {
+                                ...t,
+                                promptTokens: event.usage.promptTokens,
+                                completionTokens: event.usage.completionTokens,
+                                totalTokens: event.usage.totalTokens,
+                                estimatedCost: event.usage.estimatedCost,
+                              }
+                            : t
+                        ),
+                      }
+                )
+              );
+            } else if (event.type === 'done') {
+              // Stream complete, check for tool calls
+              break;
+            }
+          }
+
+          // Parse tool calls from the response
+          const toolCalls = parseToolCalls(turnContent);
+          const cleanContent = stripToolCalls(turnContent);
+
+          if (toolCalls.length > 0) {
+            hasToolCalls = true;
+            setIsExecutingTools(true);
+
+            // Update turn with tool calls info
             setCodeSessions((prev) =>
               prev.map((sess) =>
                 sess.id !== params.sessionId
@@ -341,13 +576,44 @@ export default function App() {
                       ...sess,
                       turns: sess.turns.map((t) =>
                         t.id === params.turnId
-                          ? { ...t, content: t.content + event.delta }
+                          ? { ...t, content: cleanContent, toolCalls: toolCalls.map(tc => ({
+                              id: tc.id,
+                              kind: tc.name as any,
+                              label: tc.name,
+                              target: JSON.stringify(tc.arguments),
+                            })), isStreaming: false }
                           : t
                       ),
                     }
               )
             );
-          } else if (event.type === 'done') {
+
+            // Execute tool calls
+            const results = await executeToolCalls(toolCalls, workspaceRoot, requestPermission);
+
+            // Store results
+            setToolCallResults((prev) => {
+              const next = new Map(prev);
+              for (const r of results) next.set(r.toolCallId, r);
+              return next;
+            });
+
+            // Build tool results for next iteration
+            const toolResultsText = results.map(r =>
+              r.success
+                ? `<tool_result id="${r.toolCallId}">\n${r.output}\n</tool_result>`
+                : `<tool_result id="${r.toolCallId}" error="true">\n${r.error}\n</tool_result>`
+            ).join('\n');
+
+            // Continue conversation with tool results
+            currentPrompt = toolResultsText;
+            currentHistory = [
+              ...currentHistory,
+              { role: 'assistant', content: turnContent },
+              { role: 'user', content: toolResultsText },
+            ];
+
+            // Show tool results in the turn
             setCodeSessions((prev) =>
               prev.map((sess) =>
                 sess.id !== params.sessionId
@@ -355,11 +621,34 @@ export default function App() {
                   : {
                       ...sess,
                       turns: sess.turns.map((t) =>
-                        t.id === params.turnId ? { ...t, isStreaming: false } : t
+                        t.id === params.turnId
+                          ? { ...t, content: cleanContent + '\n\n' + toolResultsText }
+                          : t
                       ),
                     }
               )
             );
+
+            // Small delay before next iteration
+            await new Promise(r => setTimeout(r, 100));
+          } else {
+            // No tool calls, we're done
+            const thinkingDurationSec = (Date.now() - thinkingStart) / 1000;
+            setCodeSessions((prev) =>
+              prev.map((sess) =>
+                sess.id !== params.sessionId
+                  ? sess
+                  : {
+                      ...sess,
+                      turns: sess.turns.map((t) =>
+                        t.id === params.turnId
+                          ? { ...t, isStreaming: false, thinkingDurationSec, content: cleanContent || turnContent }
+                          : t
+                      ),
+                    }
+              )
+            );
+            break;
           }
         }
       } catch (err) {
@@ -394,6 +683,7 @@ export default function App() {
           abortControllerRef.current = null;
         }
         setIsGenerating(false);
+        setIsExecutingTools(false);
       }
     },
     [
@@ -416,7 +706,7 @@ export default function App() {
     const promptText =
       trimmed || `Analyse ces fichiers : ${attachments.map((a) => a.name).join(', ')}`;
     const usedAttachments = [...attachments];
-    const isDemoMode = preferences.fcc.mode === 'demo';
+    const isDemoMode = false;
 
     const userTurn: CodeTurn = {
       id: `cu-${Date.now()}`,
@@ -694,6 +984,73 @@ export default function App() {
     [showToast]
   );
 
+  // Tool Permission Dialog Component
+  const ToolPermissionDialog = ({
+    requests,
+    onRespond,
+  }: {
+    requests: ToolPermissionRequest[];
+    onRespond: (id: string, decision: 'approved-once' | 'approved-session' | 'denied') => void;
+  }) => {
+    const req = requests[0];
+    if (!req) return null;
+
+    const { toolCall } = req;
+    const args = toolCall.arguments as Record<string, string>;
+    const argDisplay = Object.entries(args)
+      .map(([k, v]) => `${k}: ${typeof v === 'string' && v.length > 100 ? v.slice(0, 100) + '…' : v}`)
+      .join(', ');
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-2xl bg-[var(--claude-bg-elevated)] border border-[var(--claude-border)] rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--claude-border)] bg-[var(--claude-bg)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--claude-text-primary)]">
+                  L'IA veut utiliser un outil
+                </h3>
+                <p className="text-sm text-[var(--claude-text-muted)]">
+                  {toolCall.name} — {argDisplay}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4 max-h-[60vh] overflow-auto">
+            <div className="bg-[var(--claude-bg)] rounded-lg p-4 font-mono text-sm border border-[var(--claude-border)]">
+              <pre>{JSON.stringify(args, null, 2)}</pre>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-[var(--claude-border)]">
+              <button
+                onClick={() => onRespond(req.id, 'denied')}
+                className="px-4 py-2 text-sm font-medium text-[var(--claude-text-secondary)] bg-[var(--claude-bg)] border border-[var(--claude-border)] rounded-lg hover:bg-[var(--claude-bg-hover)] transition-colors"
+              >
+                Refuser
+              </button>
+              <button
+                onClick={() => onRespond(req.id, 'approved-once')}
+                className="px-4 py-2 text-sm font-medium text-[var(--claude-bg)] bg-[var(--claude-accent)] border-none rounded-lg hover:opacity-90 transition-opacity"
+              >
+                Autoriser une fois
+              </button>
+              <button
+                onClick={() => onRespond(req.id, 'approved-session')}
+                className="px-4 py-2 text-sm font-medium text-[var(--claude-bg)] bg-green-500 border-none rounded-lg hover:opacity-90 transition-opacity"
+              >
+                Autoriser pour la session
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       data-surface="code"
@@ -726,7 +1083,7 @@ export default function App() {
         canGoForward={navHistoryIndex < navHistory.length - 1}
         onGoBack={handleGoBack}
         onGoForward={handleGoForward}
-        workspaces={INITIAL_CODE_WORKSPACES}
+        workspaces={workspaces}
         activeWorkspaceId={activeWorkspace.id}
         onSelectWorkspace={(wsId) => {
           setMobileSidebarOpen(false);
@@ -734,6 +1091,7 @@ export default function App() {
           const first = codeSessions.find((s) => s.workspaceId === wsId);
           pushCodeHistory(first?.id ?? null);
         }}
+        onOpenFolderPicker={handleOpenFolderPicker}
         sessions={codeSessions}
         activeSessionId={activeCodeSessionId}
         activeSubPage={codeSubPage}
@@ -859,7 +1217,12 @@ export default function App() {
         {/* Workspace Split */}
         <main className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                {codeSubPage === 'customize' ? (
+                {surfaceMode === 'agents' ? (
+                  <DotBrainSurface
+                    fccMode={preferences.fcc.mode}
+                    fccEndpointUrl={preferences.fcc.endpointUrl}
+                  />
+                ) : codeSubPage === 'customize' ? (
                   <CustomizeView onOpenFccSettings={() => setSettingsTab('fcc')} />
                 ) : activeCodeSession ? (
                   <CodeSessionView
@@ -1018,6 +1381,7 @@ export default function App() {
                       const adapter = createClaudeAdapter(preferences.fcc);
                       const ctrl = new AbortController();
                       let acc = '';
+                      let accumulatedThinking = '';
                       try {
                         for await (const ev of adapter.sendMessageStream(
                           {
@@ -1032,7 +1396,10 @@ export default function App() {
                           },
                           ctrl.signal
                         )) {
-                          if (ev.type === 'text_delta') {
+                          if (ev.type === 'thinking_delta') {
+                            accumulatedThinking += ev.delta;
+                            // SideChatMessage doesn't have thinking field yet, but we could add it
+                          } else if (ev.type === 'text_delta') {
                             acc += ev.delta;
                             setCodeSessions((prev) =>
                               prev.map((sess) =>
@@ -1048,6 +1415,35 @@ export default function App() {
                                               messages: sc.messages.map((m, idx) =>
                                                 idx === sc.messages.length - 1
                                                   ? { ...m, content: acc }
+                                                  : m
+                                              ),
+                                            }
+                                      ),
+                                    }
+                              )
+                            );
+                          } else if (ev.type === 'usage') {
+                            // Capture token usage for side chat
+                            setCodeSessions((prev) =>
+                              prev.map((sess) =>
+                                sess.id !== target.id
+                                  ? sess
+                                  : {
+                                      ...sess,
+                                      sideChats: sess.sideChats.map((sc) =>
+                                        sc.id !== sideChatId
+                                          ? sc
+                                          : {
+                                              ...sc,
+                                              messages: sc.messages.map((m, idx) =>
+                                                idx === sc.messages.length - 1
+                                                  ? {
+                                                      ...m,
+                                                      promptTokens: ev.usage.promptTokens,
+                                                      completionTokens: ev.usage.completionTokens,
+                                                      totalTokens: ev.usage.totalTokens,
+                                                      estimatedCost: ev.usage.estimatedCost,
+                                                    }
                                                   : m
                                               ),
                                             }
@@ -1131,6 +1527,18 @@ export default function App() {
         />
       )}
 
+      {/* Tool Permission Dialog */}
+      {pendingToolPermissions.length > 0 && (
+        <ToolPermissionDialog
+          requests={pendingToolPermissions}
+          onRespond={(id, decision) => {
+            setPendingToolPermissions((prev) =>
+              prev.map((r) => (r.id === id ? { ...r, status: decision } : r))
+            );
+          }}
+        />
+      )}
+
       {settingsTab && (
         <SettingsModal
           initialTab={settingsTab}
@@ -1190,6 +1598,91 @@ export default function App() {
             showToast(`Session « ${importedSession.title} » importée`);
           }}
         />
+      )}
+
+      {folderPickerOpen && (
+        <div
+          className="claude-animate-backdrop fixed inset-0 z-50 flex items-center justify-center bg-[var(--claude-bg)]/80 backdrop-blur-[3px]"
+          onClick={() => setFolderPickerOpen(false)}
+        >
+          <div
+            className="claude-animate-popover w-full max-w-md rounded-2xl border border-[var(--claude-border)] bg-[var(--claude-bg-elevated)] p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-[var(--claude-text-primary)]">
+                Ouvrir un dossier
+              </h2>
+              <button
+                type="button"
+                onClick={() => setFolderPickerOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--claude-text-secondary)] hover:bg-[var(--claude-sidebar-hover)] hover:text-[var(--claude-text-primary)]"
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-[var(--claude-text-secondary)] mb-4">
+              Entrez le chemin absolu du dossier à ouvrir, ou utilisez le sélecteur de fichiers (navigateurs compatibles).
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="folder-path" className="block text-xs font-medium text-[var(--claude-text-secondary)] mb-1">
+                  Chemin du dossier
+                </label>
+                <input
+                  id="folder-path"
+                  type="text"
+                  value={folderPickerPath}
+                  onChange={(e) => setFolderPickerPath(e.target.value)}
+                  placeholder="ex: C:\\Users\\Nom\\Projets\\mon-projet"
+                  className="w-full rounded-lg border border-[var(--claude-border)] bg-[var(--claude-bg)] px-3 py-2 text-sm text-[var(--claude-text-primary)] placeholder-[var(--claude-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--claude-accent)]"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      // Try File System Access API
+                      // @ts-ignore - File System Access API
+                      const handle = await window.showDirectoryPicker();
+                      // We can't get the actual path from the handle, but we can use it
+                      // For now, ask user to paste the path
+                      showToast('Copiez le chemin du dossier dans le champ ci-dessus');
+                    } catch {
+                      // User cancelled or API not supported
+                    }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-[var(--claude-border)] bg-[var(--claude-bg)] px-4 py-2 text-sm text-[var(--claude-text-primary)] hover:bg-[var(--claude-sidebar-hover)]"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  <span>Choisir un dossier…</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFolderPickerOpen(false)}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-[var(--claude-border)] bg-[var(--claude-bg)] px-4 py-2 text-sm text-[var(--claude-text-primary)] hover:bg-[var(--claude-sidebar-hover)]"
+                >
+                  Annuler
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleFolderPickerConfirm}
+                disabled={!folderPickerPath.trim()}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--claude-accent)] px-4 py-2.5 text-sm font-medium text-[var(--claude-accent-foreground)] transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>Ouvrir ce dossier</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Drag-and-drop overlay */}

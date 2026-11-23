@@ -6,3 +6,25 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Test/debug artifacts
+.playwright-mcp/
+*.yml
+*.yaml
+!/.github/workflows/*.yml
+!/.github/workflows/*.yaml
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*_backup.tsx
+*_backup.ts
+test-*.txt
+*.orig
+*.new
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini

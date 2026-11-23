@@ -1,0 +1,6 @@
+{
+  "name": "Dot Brain",
+  "description": "Visualisation interactive avancée d'un écosystème cognitif de 40 agents IA (Dots) organisés en groupes spécialisés avec communications dynamiques.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

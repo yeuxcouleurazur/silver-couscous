@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --color-canvas: #FAF9F5;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-muted: #EFECE5;
+  --color-border-subtle: #E5E3DC;
+  --color-border-strong: #D5D2C8;
+  --color-ink-primary: #1C1B19;
+  --color-ink-secondary: #5A5852;
+  --color-ink-muted: #827F77;
+  --color-accent: #D97757;
+}
+
+.dark {
+  --color-canvas: #262624;
+  --color-surface: #1F1F1D;
+  --color-surface-elevated: #30302E;
+  --color-surface-muted: #3A3A37;
+  --color-border-subtle: #3B3B37;
+  --color-border-strong: #4A4A45;
+  --color-ink-primary: #ECEAE4;
+  --color-ink-secondary: #B4B1A8;
+  --color-ink-muted: #8B8880;
+  --color-accent: #D97757;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    background-color: var(--color-canvas);
+    color: var(--color-ink-primary);
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+}
+
+@keyframes dot-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.42);
+    opacity: 0.16;
+  }
+}
+
+@keyframes dot-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dot-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.58;
+  }
+  100% {
+    transform: scale(1.95);
+    opacity: 0;
+  }
+}
+
+.dot-anim-breathe {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-breathe 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.dot-anim-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-orbit 6s linear infinite;
+}
+
+.dot-anim-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-ripple 2.1s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot-anim-breathe,
+  .dot-anim-orbit,
+  .dot-anim-ripple {
+    animation: none;
+  }
+}

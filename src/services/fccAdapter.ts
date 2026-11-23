@@ -9,6 +9,8 @@
   PermissionMode,
   ToolSettings,
 } from '../types/claude';
+import { CLAUDE_MODELS, DEFAULT_FCC_MODELS } from '../data/demoData';
+import { usageTracker } from './usageTracker';
 
 export interface ConversationHistoryTurn {
   role: 'user' | 'assistant';
@@ -36,7 +38,16 @@ export type ClaudeStreamEvent =
   | { type: 'citation'; citations: Citation[] }
   | { type: 'artifact'; artifact: Artifact }
   | { type: 'error'; message: string }
-  | { type: 'done' };
+  | { type: 'done' }
+  | { type: 'usage'; usage: UsageInfo };
+
+export interface UsageInfo {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  durationMs: number;
+}
 
 export interface ClaudeTransportAdapter {
   readonly kind: 'gemini' | 'fcc';
@@ -62,6 +73,12 @@ export class FccHttpAdapter implements ClaudeTransportAdapter {
     payload: SendMessagePayload,
     signal: AbortSignal
   ): AsyncGenerator<ClaudeStreamEvent, void, unknown> {
+    const startTime = Date.now();
+    let accumulatedText = '';
+    let accumulatedThinking = '';
+    let hasError = false;
+    let errorMessage: string | undefined;
+
     const response = await fetch(this.config.endpointUrl, {
       method: 'POST',
       headers: {
@@ -74,38 +91,98 @@ export class FccHttpAdapter implements ClaudeTransportAdapter {
     });
 
     if (!response.ok || !response.body) {
-      throw new Error(
-        `Le bridge FCC (${this.config.endpointUrl}) a rÃ©pondu avec le statut ${response.status}.`
-      );
+      const errorMsg = `Le bridge FCC (${this.config.endpointUrl}) a répondu avec le statut ${response.status}.`;
+      // Record failed call
+      usageTracker.recordCall({
+        modelId: payload.modelId,
+        modelName: payload.modelId,
+        provider: 'fcc',
+        promptText: payload.prompt,
+        completionText: '',
+        durationMs: Date.now() - startTime,
+        success: false,
+        error: errorMsg,
+        conversationId: payload.conversationId,
+      });
+      throw new Error(errorMsg);
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-      const frames = buffer.split('\n\n');
-      buffer = frames.pop() ?? '';
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
 
-      for (const frame of frames) {
-        const line = frame.split('\n').find((l) => l.startsWith('data: '));
-        if (!line) continue;
-        const raw = line.slice(6).trim();
-        if (raw === '[DONE]') {
-          yield { type: 'done' };
-          return;
-        }
-        try {
-          const parsed = JSON.parse(raw) as ClaudeStreamEvent;
-          yield parsed;
-        } catch {
-          yield { type: 'text_delta', delta: raw };
+        for (const frame of frames) {
+          const line = frame.split('\n').find((l) => l.startsWith('data: '));
+          if (!line) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') {
+            yield { type: 'done' };
+            // Record successful call
+            const usageRecord = usageTracker.recordCall({
+              modelId: payload.modelId,
+              modelName: payload.modelId,
+              provider: 'fcc',
+              promptText: payload.prompt,
+              completionText: accumulatedText,
+              durationMs: Date.now() - startTime,
+              success: !hasError,
+              error: errorMessage,
+              conversationId: payload.conversationId,
+            });
+            // Emit usage info for UI token counter
+            yield {
+              type: 'usage',
+              usage: {
+                promptTokens: usageRecord.promptTokens,
+                completionTokens: usageRecord.completionTokens,
+                totalTokens: usageRecord.totalTokens,
+                estimatedCost: usageRecord.estimatedCost,
+                durationMs: usageRecord.durationMs,
+              },
+            };
+            return;
+          }
+          try {
+            const parsed = JSON.parse(raw) as ClaudeStreamEvent;
+            if (parsed.type === 'text_delta') {
+              accumulatedText += parsed.delta;
+            } else if (parsed.type === 'thinking_delta') {
+              accumulatedThinking += parsed.delta;
+            } else if (parsed.type === 'error') {
+              hasError = true;
+              errorMessage = parsed.message;
+            }
+            yield parsed;
+          } catch {
+            yield { type: 'text_delta', delta: raw };
+            accumulatedText += raw;
+          }
         }
       }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erreur de streaming FCC';
+      // Record failed call
+      usageTracker.recordCall({
+        modelId: payload.modelId,
+        modelName: payload.modelId,
+        provider: 'fcc',
+        promptText: payload.prompt,
+        completionText: accumulatedText,
+        durationMs: Date.now() - startTime,
+        success: false,
+        error: errorMsg,
+        conversationId: payload.conversationId,
+      });
+      throw err;
     }
 
     yield { type: 'done' };
@@ -123,6 +200,11 @@ export class GeminiApiAdapter implements ClaudeTransportAdapter {
     payload: SendMessagePayload,
     signal: AbortSignal
   ): AsyncGenerator<ClaudeStreamEvent, void, unknown> {
+    const startTime = Date.now();
+    let accumulatedText = '';
+    let hasError = false;
+    let errorMessage: string | undefined;
+
     const response = await fetch('/api/gemini/stream', {
       method: 'POST',
       headers: {
@@ -153,47 +235,114 @@ export class GeminiApiAdapter implements ClaudeTransportAdapter {
       } catch {
         // ignore JSON parse failure
       }
+      // Record failed call
+      usageTracker.recordCall({
+        modelId: payload.modelId,
+        modelName: payload.modelId,
+        provider: 'gemini',
+        promptText: payload.prompt,
+        completionText: '',
+        durationMs: Date.now() - startTime,
+        success: false,
+        error: detail,
+        conversationId: payload.conversationId,
+      });
       throw new Error(detail);
     }
 
     if (!response.body) {
-      throw new Error('Flux SSE indisponible depuis le serveur Gemini.');
+      const errorMsg = 'Flux SSE indisponible depuis le serveur Gemini.';
+      usageTracker.recordCall({
+        modelId: payload.modelId,
+        modelName: payload.modelId,
+        provider: 'gemini',
+        promptText: payload.prompt,
+        completionText: '',
+        durationMs: Date.now() - startTime,
+        success: false,
+        error: errorMsg,
+        conversationId: payload.conversationId,
+      });
+      throw new Error(errorMsg);
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-      const frames = buffer.split('\n\n');
-      buffer = frames.pop() ?? '';
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
 
-      for (const frame of frames) {
-        const line = frame.split('\n').find((l) => l.startsWith('data: '));
-        if (!line) continue;
-        const raw = line.slice(6).trim();
-        if (!raw || raw === '[DONE]') {
-          yield { type: 'done' };
-          return;
-        }
-        try {
-          const parsed = JSON.parse(raw) as ClaudeStreamEvent;
-          if (parsed.type === 'error') {
-            throw new Error(parsed.message);
+        for (const frame of frames) {
+          const line = frame.split('\n').find((l) => l.startsWith('data: '));
+          if (!line) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') {
+            yield { type: 'done' };
+            // Record successful call
+            const usageRecord = usageTracker.recordCall({
+              modelId: payload.modelId,
+              modelName: payload.modelId,
+              provider: 'gemini',
+              promptText: payload.prompt,
+              completionText: accumulatedText,
+              durationMs: Date.now() - startTime,
+              success: !hasError,
+              error: errorMessage,
+              conversationId: payload.conversationId,
+            });
+            // Emit usage info for UI token counter
+            yield {
+              type: 'usage',
+              usage: {
+                promptTokens: usageRecord.promptTokens,
+                completionTokens: usageRecord.completionTokens,
+                totalTokens: usageRecord.totalTokens,
+                estimatedCost: usageRecord.estimatedCost,
+                durationMs: usageRecord.durationMs,
+              },
+            };
+            return;
           }
-          yield parsed;
-        } catch (err) {
-          if (err instanceof SyntaxError) {
-            yield { type: 'text_delta', delta: raw };
-          } else {
-            throw err;
+          try {
+            const parsed = JSON.parse(raw) as ClaudeStreamEvent;
+            if (parsed.type === 'text_delta') {
+              accumulatedText += parsed.delta;
+            } else if (parsed.type === 'error') {
+              hasError = true;
+              errorMessage = parsed.message;
+            }
+            yield parsed;
+          } catch (err) {
+            if (err instanceof SyntaxError) {
+              yield { type: 'text_delta', delta: raw };
+              accumulatedText += raw;
+            } else {
+              throw err;
+            }
           }
         }
       }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erreur de streaming Gemini';
+      usageTracker.recordCall({
+        modelId: payload.modelId,
+        modelName: payload.modelId,
+        provider: 'gemini',
+        promptText: payload.prompt,
+        completionText: accumulatedText,
+        durationMs: Date.now() - startTime,
+        success: false,
+        error: errorMsg,
+        conversationId: payload.conversationId,
+      });
+      throw err;
     }
 
     yield { type: 'done' };
@@ -201,35 +350,67 @@ export class GeminiApiAdapter implements ClaudeTransportAdapter {
 }
 
 /**
- * RÃ©cupÃ¨re la liste des modÃ¨les en direct depuis le bridge FCC (GET /v1/models).
- * Retourne [] si le bridge est indisponible â€” jamais de faux modÃ¨les.
+ * Récupère la liste des modèles en direct depuis le bridge FCC (GET /v1/models).
+ * Retourne les modèles Claude connus si le bridge est indisponible — jamais de faux modèles.
+ * Les modèles du bridge FCC prennent la priorité sur la liste statique.
  */
 export async function fetchFccModels(endpointUrl: string): Promise<ModelConfig[]> {
+  if (!endpointUrl || !endpointUrl.trim()) {
+    // No endpoint configured — return known working Claude models as fallback
+    return DEFAULT_FCC_MODELS;
+  }
+
   const modelsUrl = endpointUrl.replace(/\/v1\/claude\/stream$/, '/v1/models');
   try {
     const res = await fetch(modelsUrl, {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      // Bridge unavailable — return known models as fallback
+      return DEFAULT_FCC_MODELS;
+    }
     const body = (await res.json()) as { data?: unknown[] };
     const data: unknown[] = Array.isArray(body.data) ? body.data : [];
-    return data.map((m: unknown) => {
+    const bridgeModels = data.map((m: unknown) => {
       const mm = m as Record<string, unknown>;
       return {
         id: String(mm.id ?? ''),
         name: String(mm.display_name ?? mm.id ?? ''),
         shortName: String(mm.id ?? ''),
-        description: mm.description ? String(mm.description) : 'ModÃ¨le dÃ©couvert depuis FCC',
+        description: mm.description ? String(mm.description) : 'Modèle découvert depuis FCC',
         supportsThinking: Boolean(mm.supports_reasoning),
       } as ModelConfig;
     });
+
+    // Merge: bridge models first, then add any missing known models
+    const knownIds = new Set(bridgeModels.map(m => m.id));
+    const merged = [...bridgeModels];
+    for (const known of CLAUDE_MODELS) {
+      if (!knownIds.has(known.id)) {
+        merged.push(known);
+      }
+    }
+    return merged;
   } catch {
-    return [];
+    // Network error — return known models as fallback
+    return DEFAULT_FCC_MODELS;
   }
 }
 
+/**
+ * Get all known Claude models (static list).
+ * Useful for UI display when FCC bridge is not configured.
+ */
+export function getKnownClaudeModels(): ModelConfig[] {
+  return CLAUDE_MODELS;
+}
+
 export function createClaudeAdapter(config: FccConnectionConfig): ClaudeTransportAdapter {
+  if (config.mode === 'demo') {
+    // Demo mode uses Gemini adapter with mock responses
+    return new GeminiApiAdapter();
+  }
   if (config.mode === 'gemini') {
     return new GeminiApiAdapter();
   }

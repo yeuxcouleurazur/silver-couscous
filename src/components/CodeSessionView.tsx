@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Brain,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -466,6 +467,25 @@ export const CodeSessionView: React.FC<CodeSessionViewProps> = ({
                   </div>
                 )}
 
+                {/* Thinking Process Display */}
+                {turn.thinking && (
+                  <details className="group mb-2">
+                    <summary className="flex items-center gap-2 py-1 text-[12px] text-[var(--claude-text-muted)] cursor-pointer select-none">
+                      <Brain className="h-4 w-4 text-[var(--claude-accent)]" />
+                      <span>Réflexion</span>
+                      {turn.thinkingDurationSec && (
+                        <span className="ml-auto text-[11px] opacity-60">
+                          {turn.thinkingDurationSec.toFixed(1)}s
+                        </span>
+                      )}
+                      <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="ml-6 mt-1.5 pt-1.5 border-l border-[var(--claude-border)] text-[12px] text-[var(--claude-text-secondary)] font-mono whitespace-pre-wrap leading-relaxed">
+                      {turn.thinking}
+                    </div>
+                  </details>
+                )}
+
                 {/* Assistant Markdown Prose */}
                 {turn.content && (
                   <div className="text-[var(--claude-text-primary)]">
@@ -474,6 +494,22 @@ export const CodeSessionView: React.FC<CodeSessionViewProps> = ({
                       fontPreference={chatFont}
                       isStreaming={turn.isStreaming}
                     />
+                  </div>
+                )}
+
+                {/* Token Counter at end of assistant message */}
+                {(turn.totalTokens !== undefined || turn.promptTokens !== undefined) && (
+                  <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--claude-text-muted)]">
+                    <span className="font-claude-mono">
+                      {turn.promptTokens !== undefined ? `↑${turn.promptTokens}` : '↑?'} ·{' '}
+                      {turn.completionTokens !== undefined ? `↓${turn.completionTokens}` : '↓?'} ·{' '}
+                      {turn.totalTokens !== undefined ? `=${turn.totalTokens}` : '=?'}
+                    </span>
+                    {turn.estimatedCost !== undefined && turn.estimatedCost > 0 && (
+                      <span className="px-1.5 py-0.5 rounded bg-[var(--claude-surface-subtle)] font-claude-mono">
+                        ~${turn.estimatedCost.toFixed(6)}
+                      </span>
+                    )}
                   </div>
                 )}
 

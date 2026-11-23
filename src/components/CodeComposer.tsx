@@ -132,6 +132,17 @@ export const CodeComposer: React.FC<CodeComposerProps> = ({
   const selectedPerm =
     PERMISSION_OPTIONS.find((p) => p.id === permissionMode) ?? PERMISSION_OPTIONS[0];
 
+  // Fallback model if no models available
+  const fallbackModel = {
+    id: 'fallback' as ModelId,
+    name: 'No model connected',
+    shortName: 'No model',
+    provider: 'local' as const,
+    capabilities: [],
+    contextWindow: 0,
+  };
+  const displayModel = selectedModel ?? fallbackModel;
+
   const handleSelectSlashCommand = (cmdName: string, hasHint?: boolean) => {
     if (hasHint) {
       onChange(`/${cmdName} `);
@@ -409,14 +420,14 @@ export const CodeComposer: React.FC<CodeComposerProps> = ({
                 setModelMenuOpen((v) => !v);
                 setEffortSubmenuOpen(false);
               }}
-              aria-label={`Modèle et effort : ${selectedModel.name}, ${selectedEffort.label}`}
+              aria-label={`Modèle et effort : ${displayModel.name}, ${selectedEffort.label}`}
               className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-[var(--claude-surface-subtle)] sm:py-0.5"
             >
               <span className="font-medium text-[var(--claude-text-primary)] sm:hidden">
-                {selectedModel.shortName}
+                {displayModel.shortName}
               </span>
               <span className="hidden font-medium text-[var(--claude-text-primary)] sm:inline">
-                {selectedModel.name}
+                {displayModel.name}
               </span>
               <span className="font-medium text-[var(--cds-effort-text)]">
                 {selectedEffort.shortLabel}
@@ -427,7 +438,7 @@ export const CodeComposer: React.FC<CodeComposerProps> = ({
               <div className="claude-animate-popover absolute bottom-full right-0 z-50 mb-2 flex max-w-[calc(100vw-1.5rem)] flex-col-reverse items-end gap-1.5 sm:flex-row sm:items-end">
                 {/* Primary Model Menu */}
                 <div
-                  className="w-[min(220px,calc(100vw-1.5rem))] rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg-elevated)] p-1 text-[12.5px] sm:w-[216px]"
+                  className="w-[min(220px,calc(100vw-1.5rem))] rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg-elevated)] p-1 text-[12.5px] sm:w-[216px] max-h-96 overflow-y-auto"
                   style={{ boxShadow: 'var(--claude-popover-shadow)' }}
                 >
                   {availableModels.map((m, idx) => {

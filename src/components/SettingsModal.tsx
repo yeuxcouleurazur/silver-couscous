@@ -15,9 +15,11 @@ import {
   RotateCcw,
   Search,
   Sun,
+  Trash2,
   User,
   X,
   Zap,
+  Download,
 } from 'lucide-react';
 import type {
   ChatFontPreference,
@@ -27,6 +29,7 @@ import type {
   UserPreferences,
 } from '../types/claude';
 import { CLAUDE_MODELS } from '../data/demoData';
+import { usageTracker, type UsageStats, type UsageRecord } from '../services/usageTracker';
 
 interface SettingsModalProps {
   initialTab: SettingsSectionId;
@@ -67,9 +70,33 @@ const SSE_CONTRACT_SNIPPET = `POST /v1/claude/stream
 Content-Type: application/json
 Accept: text/event-stream
 
-data: {"type":"thinking_delta","delta":"Analyse du contexte…"}
+data: {"type":"thinking_delta","delta":"Analyse du contexte..."}
 data: {"type":"text_delta","delta":"Voici la réponse structurée."}
 data: {"type":"done","thinkingDurationSec":2}`;
+
+// Usage stat card component
+interface UsageStatCardProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  color: string;
+}
+
+function UsageStatCard({ label, value, icon, color }: UsageStatCardProps) {
+  return (
+    <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-[11px] text-[var(--claude-text-muted)] mb-1">{label}</div>
+          <div className="text-xl font-mono font-medium tabular-nums text-[var(--claude-text-primary)]">{value}</div>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}/15` }}>
+          <span style={{ color }}>{icon}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialTab,
@@ -81,6 +108,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsSectionId>(initialTab);
   const [navSearch, setNavSearch] = useState('');
+  // Presets d'endpoints FCC Claude connus
+  const FCC_ENDPOINT_PRESETS = [
+    { label: 'Claude Code FCC (local)', url: 'http://localhost:8787/v1/claude/stream', description: 'Bridge FCC standard Claude Code' },
+    { label: 'Claude Code FCC (Docker)', url: 'http://host.docker.internal:8787/v1/claude/stream', description: 'Depuis container Docker' },
+    { label: 'Claude Code FCC (Tailscale)', url: 'http://100.x.x.x:8787/v1/claude/stream', description: 'Via Tailscale (remplacez IP)' },
+    { label: 'Personnalisé', url: '', description: 'Votre endpoint SSE personnalisé' },
+  ] as const;
+
   const [endpointDraft, setEndpointDraft] = useState(preferences.fcc.endpointUrl);
   const [savedNotice, setSavedNotice] = useState(false);
   const [probeState, setProbeState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
@@ -88,6 +123,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [copiedContract, setCopiedContract] = useState(false);
   const [desktopNotif, setDesktopNotif] = useState(true);
   const [soundNotif, setSoundNotif] = useState(false);
+
+  // Real usage tracking state
+  const [usageStats, setUsageStats] = useState<UsageStats>(() => usageTracker.getStats());
+  const [usageHistory, setUsageHistory] = useState<UsageRecord[]>(() => usageTracker.getHistory(50));
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Subscribe to usage tracker updates
+  useEffect(() => {
+    const unsubscribe = usageTracker.subscribe(() => {
+      setUsageStats(usageTracker.getStats());
+      setUsageHistory(usageTracker.getHistory(50));
+    });
+    return unsubscribe;
+  }, []);
 
   const availableModels =
     preferences.fcc.mode === 'fcc' && fccModels && fccModels.length > 0
@@ -126,7 +175,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const url = endpointDraft.trim();
     if (!url) return;
     setProbeState('testing');
-    setProbeMessage('Vérification de la connectivité…');
+    setProbeMessage('Vérification de la connectivité...');
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 3500);
     try {
@@ -327,13 +376,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="flex flex-col gap-2.5 border-t border-[var(--claude-border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-[var(--claude-text-primary)]">
-                          URL de l’endpoint FCC (SSE)
+                          URL de l'endpoint FCC (SSE)
                         </div>
                         <div className="text-[11.5px] text-[var(--claude-text-muted)]">
                           Utilisée uniquement lorsque le mode Bridge FCC est sélectionné.
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <select
+                          value={endpointDraft}
+                          onChange={(e) => setEndpointDraft(e.target.value)}
+                          className="w-full rounded-lg border border-[var(--claude-border)] bg-[var(--claude-bg-elevated)] px-2.5 py-1.5 font-claude-mono text-[12px] sm:w-56"
+                        >
+                          {FCC_ENDPOINT_PRESETS.map((p) => (
+                            <option key={p.url} value={p.url}>
+                              {p.label} — {p.description}
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="url"
                           value={endpointDraft}
@@ -356,7 +416,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="mb-1.5 text-[11.5px] font-medium text-[var(--claude-text-muted)]">
                     Modèles disponibles
                   </div>
-                  <div className="divide-y divide-[var(--claude-border)] rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)]">
+                  <div className="divide-y divide-[var(--claude-border)] rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] max-h-96 overflow-y-auto">
                     {availableModels.map((m, idx) => (
                       <div
                         key={m.id}
@@ -385,7 +445,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ))}
                   </div>
                   <p className="mt-2 text-[12px] text-[var(--claude-text-muted)]">
-                    S’applique dès la prochaine requête.
+                    S'applique dès la prochaine requête.
                   </p>
                 </div>
               </div>
@@ -396,7 +456,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="mt-4 space-y-5">
                 <div>
                   <label className="block text-[12.5px] font-medium text-[var(--claude-text-primary)]">
-                    Thème de l’interface
+                    Thème de l'interface
                   </label>
                   <div className="mt-2.5 grid grid-cols-3 gap-2.5">
                     {(
@@ -539,24 +599,205 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* USAGE TAB */}
             {activeTab === 'usage' && (
               <div className="mt-4 space-y-4">
-                <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4">
-                  <div className="flex items-center justify-between text-[12.5px]">
-                    <span className="font-medium text-[var(--claude-text-primary)]">
-                      Fenêtre de session (exemple démo)
-                    </span>
-                    <span className="tabular-nums text-[var(--claude-text-muted)]">
-                      41,8k / 128k tokens (33%)
-                    </span>
-                  </div>
-                  <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-[var(--claude-surface-subtle)]">
-                    <div className="w-[16%] bg-[#3B82F6]" />
-                    <div className="w-[10%] bg-[#F97316]" />
-                    <div className="w-[7%] bg-[#34A853]" />
-                  </div>
-                  <p className="mt-3 text-[12px] text-[var(--claude-text-muted)]">
-                    Aucune facturation ni consommation réelle : l’interface tourne uniquement en frontend avec des compteurs de démonstration tant que votre bridge FCC n’est pas connecté.
-                  </p>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <UsageStatCard
+                    label="Requêtes totales"
+                    value={usageStats.totalRequests.toLocaleString()}
+                    icon={<Zap className="w-4 h-4" />}
+                    color="var(--dot-info)"
+                  />
+                  <UsageStatCard
+                    label="Tokens totaux"
+                    value={usageStats.totalTokens.toLocaleString()}
+                    icon={<Gauge className="w-4 h-4" />}
+                    color="var(--dot-success)"
+                  />
+                  <UsageStatCard
+                    label="Coût estimé"
+                    value={`$${usageStats.totalEstimatedCost.toFixed(4)}`}
+                    icon={<Briefcase className="w-4 h-4" />}
+                    color="var(--dot-warning)"
+                  />
+                  <UsageStatCard
+                    label="Taux de succès"
+                    value={`${usageStats.successRate.toFixed(1)}%`}
+                    icon={<Check className="w-4 h-4" />}
+                    color={usageStats.successRate >= 90 ? 'var(--dot-success)' : usageStats.successRate >= 70 ? 'var(--dot-warning)' : 'var(--dot-error)'}
+                  />
                 </div>
+
+                {/* Latency & Tokens breakdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4">
+                    <div className="font-medium text-[var(--claude-text-primary)] mb-3">Latence moyenne</div>
+                    <div className="text-2xl font-mono tabular-nums text-[var(--claude-text-primary)]">
+                      {usageStats.averageLatencyMs > 0 ? `${usageStats.averageLatencyMs.toFixed(0)} ms` : '—'}
+                    </div>
+                    <div className="mt-1 text-[11px] text-[var(--claude-text-muted)]">
+                      Prompt: {usageStats.totalPromptTokens.toLocaleString()} · Completion: {usageStats.totalCompletionTokens.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4">
+                    <div className="font-medium text-[var(--claude-text-primary)] mb-3">Par fournisseur</div>
+                    <div className="space-y-2">
+                      {Object.entries(usageStats.byProvider).length > 0 ? (
+                        Object.entries(usageStats.byProvider).map(([provider, stats]) => (
+                          <div key={provider} className="flex items-center justify-between text-[12px]">
+                            <span className="capitalize text-[var(--claude-text-secondary)]">{provider}</span>
+                            <span className="tabular-nums text-[var(--claude-text-primary)] font-medium">
+                              {stats.requests} req · {stats.totalTokens.toLocaleString()} tok · ${stats.estimatedCost.toFixed(4)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-[12px] text-[var(--claude-text-muted)]">Aucune donnée</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* By Model */}
+                <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="font-medium text-[var(--claude-text-primary)]">Par modèle</div>
+                    <button
+                      onClick={() => setShowHistory(!showHistory)}
+                      className="flex items-center gap-1 text-[11px] text-[var(--claude-accent)] hover:underline"
+                    >
+                      {showHistory ? <ChevronRight className="w-3 h-3 rotate-90" /> : <ChevronRight className="w-3 h-3" />}
+                      {showHistory ? 'Masquer l\'historique' : 'Voir l\'historique détaillé'}
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {Object.entries(usageStats.byModel).length > 0 ? (
+                      Object.entries(usageStats.byModel)
+                        .sort(([, a], [, b]) => b.totalTokens - a.totalTokens)
+                        .map(([modelId, stats]) => (
+                          <div key={modelId} className="rounded-lg border border-[var(--claude-border)] bg-[var(--claude-surface-subtle)]/50 p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-mono text-[11px] text-[var(--claude-text-primary)] truncate">{stats.modelName}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--claude-border)] text-[var(--claude-text-muted)]">{stats.provider}</span>
+                              </div>
+                              <div className="text-right text-[11px]">
+                                <div className="tabular-nums text-[var(--claude-text-primary)] font-medium">{stats.totalTokens.toLocaleString()} tokens</div>
+                                <div className="text-[var(--claude-text-muted)]">${stats.estimatedCost.toFixed(4)} · {stats.requests} req · {stats.successRate.toFixed(0)}%</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="text-center py-8 text-[var(--claude-text-muted)]">
+                        <Gauge className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>Aucun appel réel effectué pour le moment</p>
+                        <p className="text-[11px] mt-1">Les données apparaîtront ici après vos premières requêtes vers FCC ou Gemini</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Detailed History */}
+                {showHistory && usageHistory.length > 0 && (
+                  <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-medium text-[var(--claude-text-primary)]">Historique des appels (50 derniers)</div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const data = usageTracker.exportData();
+                            const blob = new Blob([data], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `claude-usage-${new Date().toISOString().slice(0, 10)}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg border border-[var(--claude-border)] bg-[var(--claude-surface-subtle)] hover:bg-[var(--claude-bg)] transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          Exporter JSON
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Supprimer tout l\'historique d\'utilisation ? Cette action est irréversible.')) {
+                              usageTracker.clearHistory();
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg border border-[var(--claude-border)] bg-[var(--claude-surface-subtle)] text-[var(--dot-error)] hover:bg-[var(--dot-error)]/10 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Effacer
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] border-collapse">
+                        <thead>
+                          <tr className="border-b border-[var(--claude-border)] text-left text-[var(--claude-text-muted)]">
+                            <th className="pb-2 pr-4 font-medium">Horodatage</th>
+                            <th className="pb-2 pr-4 font-medium">Modèle</th>
+                            <th className="pb-2 pr-4 font-medium tabular-nums">Tokens</th>
+                            <th className="pb-2 pr-4 font-medium tabular-nums">Coût</th>
+                            <th className="pb-2 pr-4 font-medium tabular-nums">Latence</th>
+                            <th className="pb-2 pr-4 font-medium">Statut</th>
+                            <th className="pb-2 pr-4 font-medium">Contexte</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {usageHistory.map((record) => (
+                            <tr key={record.id} className="border-b border-[var(--claude-border)]/50 hover:bg-[var(--claude-surface-subtle)]/50">
+                              <td className="py-2 pr-4 text-[var(--claude-text-secondary)] font-mono">
+                                {new Date(record.timestamp).toLocaleTimeString()}
+                              </td>
+                              <td className="py-2 pr-4 text-[var(--claude-text-primary)] truncate max-w-[150px]">
+                                {record.modelName} <span className="text-[10px] text-[var(--claude-text-muted)] capitalize">({record.provider})</span>
+                              </td>
+                              <td className="py-2 pr-4 tabular-nums text-[var(--claude-text-primary)]">
+                                {record.totalTokens.toLocaleString()} ({record.promptTokens}/{record.completionTokens})
+                              </td>
+                              <td className="py-2 pr-4 tabular-nums text-[var(--claude-text-primary)]">
+                                ${record.estimatedCost.toFixed(6)}
+                              </td>
+                              <td className="py-2 pr-4 tabular-nums text-[var(--claude-text-secondary)]">
+                                {record.durationMs} ms
+                              </td>
+                              <td className="py-2 pr-4">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  record.success
+                                    ? 'bg-[var(--dot-success)]/20 text-[var(--dot-success)]'
+                                    : 'bg-[var(--dot-error)]/20 text-[var(--dot-error)]'
+                                }`}>
+                                  {record.success ? 'Succès' : 'Échec'}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-4 text-[var(--claude-text-muted)] truncate max-w-[200px]">
+                                {record.missionId ? `Mission: ${record.missionId.slice(0, 20)}...` : record.conversationId ? `Conv: ${record.conversationId.slice(0, 20)}...` : record.agentId ? `Agent: ${record.agentId}` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {usageStats.totalRequests === 0 && !showHistory && (
+                  <div className="rounded-xl border border-[var(--claude-border)] bg-[var(--claude-surface-subtle)]/60 p-6 text-center">
+                    <Gauge className="w-12 h-12 mx-auto mb-3 text-[var(--claude-text-muted)]" />
+                    <h4 className="font-medium text-[var(--claude-text-primary)] mb-1">Aucune utilisation réelle</h4>
+                    <p className="text-[12px] text-[var(--claude-text-muted)] mb-4">
+                      Les statistiques apparaîtront ici après vos premiers appels réels aux modèles via FCC ou Gemini.
+                    </p>
+                    <div className="text-[11px] text-[var(--claude-text-muted)] space-y-1">
+                      <p>• Configurez le Bridge FCC dans l'onglet « Bridge FCC »</p>
+                      <p>• Ou utilisez l'API Gemini (clé requise côté serveur)</p>
+                      <p>• Lancez une mission dans Dot Brain ou une session Code</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -567,7 +808,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div>
                     <div className="font-medium">Notification de fin de tâche</div>
                     <div className="text-[12px] text-[var(--claude-text-muted)]">
-                      Prévenir lorsqu’une génération longue ou une approbation attend votre réponse.
+                      Prévenir lorsqu'une génération longue ou une approbation attend votre réponse.
                     </div>
                   </div>
                   <input
@@ -581,7 +822,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div>
                     <div className="font-medium">Son discret</div>
                     <div className="text-[12px] text-[var(--claude-text-muted)]">
-                      Émettre un signal subtil lors d’une demande de validation.
+                      Émettre un signal subtil lors d'une demande de validation.
                     </div>
                   </div>
                   <input
@@ -596,7 +837,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {(activeTab === 'customize' || activeTab === 'code') && (
               <div className="mt-4 rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg)] p-4 text-[12.5px] leading-relaxed text-[var(--claude-text-secondary)]">
-                Cette interface reproduit l’expérience visuelle de <strong>Claude Desktop (Code &amp; Chat)</strong> exclusivement côté navigateur. Elle ne lit aucun fichier de votre disque, n’exécute aucune commande système réelle et n’accède ni à vos Skills ni à vos serveurs MCP locaux.
+                Cette interface reproduit l'expérience visuelle de <strong>Claude Desktop (Code &amp; Chat)</strong> exclusivement côté navigateur. Elle ne lit aucun fichier de votre disque, n'exécute aucune commande système réelle et n'accède ni à vos Skills ni à vos serveurs MCP locaux.
               </div>
             )}
 
@@ -608,7 +849,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <code className="font-claude-mono text-[var(--claude-inline-code-text)]">
                     /api/gemini/stream
                   </code>{' '}
-                  (<strong>gemini-4-hydrogen</strong>). L’interface n’accède ni à votre disque local, ni à vos Skills, ni à vos serveurs MCP. L’adaptateur{' '}
+                  (<strong>gemini-4-hydrogen</strong>). L'interface n'accède ni à votre disque local, ni à vos Skills, ni à vos serveurs MCP. L'adaptateur{' '}
                   <code className="font-claude-mono text-[var(--claude-inline-code-text)]">
                     ClaudeTransportAdapter
                   </code>{' '}
@@ -617,7 +858,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="space-y-2">
                   <label className="block text-[12px] font-medium text-[var(--claude-text-secondary)]">
-                    URL de l’endpoint FCC (SSE)
+                    Presets d'endpoint FCC Claude
+                  </label>
+                  <select
+                    value={endpointDraft}
+                    onChange={(e) => setEndpointDraft(e.target.value)}
+                    className="rounded-lg border border-[var(--claude-border)] bg-[var(--claude-bg)] px-3 py-1.5 font-claude-mono text-[12.5px]"
+                  >
+                    {FCC_ENDPOINT_PRESETS.map((p) => (
+                      <option key={p.url} value={p.url}>
+                        {p.label} — {p.description}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-[var(--claude-text-muted)]">
+                    Sélectionnez un preset ou choisissez « Personnalisé » pour saisir votre URL.
+                  </p>
+
+                  <label className="block text-[12px] font-medium text-[var(--claude-text-secondary)]">
+                    URL de l'endpoint FCC (SSE)
                   </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input
@@ -641,7 +900,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       disabled={probeState === 'testing'}
                       className="rounded-lg border border-[var(--claude-border-strong)] px-3 py-1 text-[12px] font-medium hover:bg-[var(--claude-surface-subtle)] disabled:opacity-50"
                     >
-                      {probeState === 'testing' ? 'Test en cours…' : 'Tester l’endpoint'}
+                      {probeState === 'testing' ? 'Test en cours...' : 'Tester l\'endpoint'}
                     </button>
                     {probeMessage && (
                       <span
@@ -657,9 +916,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
+                <div className="flex items-center gap-2 pt-2 border-t border-[var(--claude-border)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultEndpoint = 'http://localhost:8787/v1/claude/stream';
+                      setEndpointDraft(defaultEndpoint);
+                      onUpdatePreferences({
+                        ...preferences,
+                        fcc: {
+                          ...preferences.fcc,
+                          mode: 'fcc',
+                          endpointUrl: defaultEndpoint,
+                          workspaceLabel: '',
+                          sendWithCredentials: false,
+                        },
+                      });
+                      setSavedNotice(true);
+                      setTimeout(() => setSavedNotice(false), 1800);
+                    }}
+                    className="rounded-lg border border-[var(--claude-border-strong)] px-3 py-1.5 text-[12px] font-medium hover:bg-[var(--claude-surface-subtle)]"
+                  >
+                    Réinitialiser au défaut (localhost:8787)
+                  </button>
+                  <span className="text-[11px] text-[var(--claude-text-muted)]">
+                    Mode: Bridge FCC · Endpoint: http://localhost:8787/v1/claude/stream
+                  </span>
+                </div>
+
                 <div className="overflow-hidden rounded-xl border border-[var(--claude-border)] bg-[var(--claude-code-bg)]">
                   <div className="flex items-center justify-between border-b border-[var(--claude-border)] px-3 py-1.5 text-[11.5px] text-[var(--claude-text-muted)]">
-                    <span>Contrat SSE attendu par l’interface</span>
+                    <span>Contrat SSE attendu par l'interface</span>
                     <button
                       type="button"
                       onClick={handleCopyContract}

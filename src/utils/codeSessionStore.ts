@@ -44,11 +44,6 @@ export const SLASH_COMMANDS: SlashCommandItem[] = [
     hint: '<tâche>',
   },
   {
-    id: 'cd',
-    name: 'cd',
-    description: 'Changer d’espace de travail de démonstration',
-  },
-  {
     id: 'rename',
     name: 'rename',
     description: 'Renommer la session active',
@@ -57,12 +52,12 @@ export const SLASH_COMMANDS: SlashCommandItem[] = [
   {
     id: 'model',
     name: 'model',
-    description: 'Choisir le modèle Claude ou l’adaptateur actif',
+    description: "Choisir le modèle Claude ou l'adaptateur actif",
   },
   {
     id: 'effort',
     name: 'effort',
-    description: 'Régler le niveau d’effort de raisonnement (Faible à Max)',
+    description: "Régler le niveau d'effort de raisonnement (Faible à Max)",
   },
   {
     id: 'plan',
@@ -72,7 +67,7 @@ export const SLASH_COMMANDS: SlashCommandItem[] = [
   {
     id: 'permissions',
     name: 'permissions',
-    description: 'Configurer le mode d’approbation (Manuel, Auto-édit, Plan)',
+    description: "Configurer le mode d'approbation (Manuel, Auto-édition, Plan)",
   },
 ];
 
@@ -153,7 +148,7 @@ export function computeContextSummary(
 
 export function formatTokenCount(tokens: number): string {
   if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(1)}k`;
+    return (tokens / 1000).toFixed(1) + 'k';
   }
   return String(tokens);
 }
@@ -237,14 +232,20 @@ export function appendSideChatExchange(
 ): { sessions: CodeSession[]; activeSideChatId: string } {
   const newId = sideChatId ?? `btw-${Date.now()}`;
   const shortTitle =
-    question.trim().length > 34 ? `${question.trim().slice(0, 33)}…` : question.trim();
+    question.trim().length > 34
+      ? question.trim().slice(0, 34) + '\u2026'
+      : question.trim();
 
   const updated = sessions.map((session) => {
     if (session.id !== sessionId) return session;
     const existing = session.sideChats.find((sc) => sc.id === newId);
-    const userMsg = { id: `scm-u-${Date.now()}`, role: 'user' as const, content: question.trim() };
+    const userMsg = {
+      id: `scm-u-${Date.now()}`,
+      role: 'user' as const,
+      content: question.trim(),
+    };
     const assistantMsg = {
-      id: `scm-a-${Date.now() + 1}`,
+      id: `scm-a-${Date.now()}`,
       role: 'assistant' as const,
       content: reply,
     };

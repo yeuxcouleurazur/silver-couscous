@@ -110,7 +110,7 @@ export interface Project {
   files: ProjectKnowledgeFile[];
 }
 
-export type AppSurfaceMode = 'code' | 'chat';
+export type AppSurfaceMode = 'code' | 'chat' | 'agents';
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'max';
 
@@ -130,7 +130,7 @@ export type SettingsSectionId =
   | 'fcc';
 
 export interface FccConnectionConfig {
-  mode: 'gemini' | 'fcc';
+  mode: 'demo' | 'gemini' | 'fcc';
   endpointUrl: string;
   workspaceLabel: string;
   sendWithCredentials: boolean;
@@ -212,6 +212,12 @@ export interface CodeTurn {
   effort?: EffortLevel;
   isStreaming?: boolean;
   wasStopped?: boolean;
+  thinking?: string;
+  thinkingDurationSec?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  estimatedCost?: number;
   toolGroupSummary?: string;
   toolGroupAdditions?: number;
   toolGroupDeletions?: number;
@@ -249,10 +255,50 @@ export interface ContextCategory {
   dottedUnderline?: boolean;
 }
 
+/** Tool call from the model (parsed from structured output). */
+export interface ToolCall {
+  id: string;
+  name: ToolName;
+  arguments: Record<string, unknown>;
+}
+
+/** Tool names available for the model to call. */
+export type ToolName =
+  | 'read_file'
+  | 'write_file'
+  | 'edit_file'
+  | 'list_files'
+  | 'run_command'
+  | 'glob_files'
+  | 'search_files';
+
+/** Tool result returned to the model after execution. */
+export interface ToolResult {
+  toolCallId: string;
+  name: ToolName;
+  success: boolean;
+  output?: string;
+  error?: string;
+}
+
+/** Permission state for a pending tool call. */
+export interface ToolPermissionRequest {
+  id: string;
+  toolCall: ToolCall;
+  status: 'pending' | 'approved-once' | 'approved-session' | 'denied';
+  timestamp: number;
+}
+
 export interface SideChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  thinking?: string;
+  thinkingDurationSec?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  estimatedCost?: number;
 }
 
 export interface SideChatSession {

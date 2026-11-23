@@ -639,6 +639,20 @@ export const CodeRightPane: React.FC<CodeRightPaneProps> = ({
                     content={m.content}
                     fontPreference={chatFont}
                   />
+                  {(m.totalTokens !== undefined || m.promptTokens !== undefined) && (
+                    <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--claude-text-muted)]">
+                      <span className="font-claude-mono">
+                        {m.promptTokens !== undefined ? `↑${m.promptTokens}` : '↑?'} ·{' '}
+                        {m.completionTokens !== undefined ? `↓${m.completionTokens}` : '↓?'} ·{' '}
+                        {m.totalTokens !== undefined ? `=${m.totalTokens}` : '=?'}
+                      </span>
+                      {m.estimatedCost !== undefined && m.estimatedCost > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--claude-surface-subtle)] font-claude-mono">
+                          ~${m.estimatedCost.toFixed(6)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             )

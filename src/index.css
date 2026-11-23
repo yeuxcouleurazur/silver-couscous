@@ -202,134 +202,76 @@ body,
   }
 }
 
-.animate-claude-spark {
-  animation: claude-spark-spin 3.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+.claude-spark-pulse {
+  animation: claude-spark-spin 1.8s ease-in-out infinite;
 }
 
-/* Streaming cursor blink */
-@keyframes claude-cursor-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.25;
-  }
+/* Subtle fade/slide for modals and overlays */
+@keyframes claude-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.animate-claude-cursor {
-  animation: claude-cursor-pulse 1s ease-in-out infinite;
+@keyframes claude-slide-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Compositor-only Claude Desktop UI animations */
-@keyframes claude-fade-up {
-  from {
-    opacity: 0.35;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes claude-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes claude-popover-enter {
-  from {
-    opacity: 0.4;
-    transform: translateY(3px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+@keyframes claude-scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-@keyframes claude-modal-enter {
-  from {
-    opacity: 0.4;
-    transform: translateY(6px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.claude-animate-fade-in { animation: claude-fade-in 180ms ease-out; }
+.claude-animate-slide-up { animation: claude-slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+.claude-animate-slide-down { animation: claude-slide-down 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+.claude-animate-scale-in { animation: claude-scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+.claude-animate-backdrop { animation: claude-fade-in 140ms ease-out; }
+.claude-animate-fade-up { animation: claude-slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Agent pulse rings */
+@keyframes agent-pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.8); opacity: 0; }
 }
 
-@keyframes claude-backdrop-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes agent-breathe-ring {
+  0%, 100% { transform: scale(1); opacity: 0.2; }
+  50% { transform: scale(1.4); opacity: 0.45; }
 }
 
-@keyframes claude-slide-right {
-  from {
-    opacity: 0.4;
-    transform: translateX(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes claude-slide-left {
-  from {
-    opacity: 0.5;
-    transform: translateX(-14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.claude-animate-fade-up {
-  animation: claude-fade-up 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.claude-animate-popover {
-  animation: claude-popover-enter 110ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.claude-animate-modal {
-  animation: claude-modal-enter 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.claude-animate-backdrop {
-  animation: claude-backdrop-enter 120ms ease-out both;
-}
-
-.claude-animate-slide-right {
-  animation: claude-slide-right 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.claude-animate-slide-left {
-  animation: claude-slide-left 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* Focus ring discipline (composer textarea delegates focus visual to its outer card) */
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:not(.claude-composer-input):focus-visible,
-select:focus-visible {
-  outline: 2px solid rgba(217, 119, 87, 0.65);
-  outline-offset: 2px;
-}
-
-textarea.claude-composer-input:focus-visible {
-  outline: none;
+@keyframes agent-line-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.45; }
 }
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Focus ring discipline */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--claude-accent);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background: var(--claude-accent-soft);
+  color: var(--claude-text-primary);
 }

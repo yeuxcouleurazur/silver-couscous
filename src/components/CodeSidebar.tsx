@@ -6,7 +6,9 @@ import {
   ChevronRight,
   Code2,
   Download,
+  FolderOpen,
   Keyboard,
+  Layout,
   MessageCircle,
   Moon,
   MoreHorizontal,
@@ -57,6 +59,7 @@ interface CodeSidebarProps {
   onOpenImportChats: () => void;
   onOpenSettings: (section?: SettingsSectionId) => void;
   onOpenShortcuts: () => void;
+  onOpenFolderPicker: () => void;
   preferences: UserPreferences;
   onThemeChange: (theme: ThemeMode) => void;
 }
@@ -87,6 +90,7 @@ export const CodeSidebar: React.FC<CodeSidebarProps> = ({
   onOpenImportChats,
   onOpenSettings,
   onOpenShortcuts,
+  onOpenFolderPicker,
   preferences,
   onThemeChange,
 }) => {
@@ -112,8 +116,10 @@ export const CodeSidebar: React.FC<CodeSidebarProps> = ({
   }, [sessionMenuId]);
 
   const activeWorkspace =
-    workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
-  const workspaceSessions = sessions.filter((s) => s.workspaceId === activeWorkspace.id);
+    workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
+  const workspaceSessions = activeWorkspace
+    ? sessions.filter((s) => s.workspaceId === activeWorkspace.id)
+    : [];
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
   const firstName = preferences.userName.trim().split(' ')[0] || 'Utilisateur';
@@ -194,6 +200,24 @@ export const CodeSidebar: React.FC<CodeSidebarProps> = ({
             }`}
           >
             <Code2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={surfaceMode === 'agents'}
+            aria-label="Réseau d'agents"
+            title="Réseau d'agents IA"
+            onClick={() => {
+              onChangeSurfaceMode('agents');
+              onCloseMobile();
+            }}
+            className={`flex h-6 w-7 items-center justify-center rounded-[6px] transition-all ${
+              surfaceMode === 'agents'
+                ? 'bg-[var(--claude-bg-elevated)] text-[var(--claude-text-primary)] shadow-xs ring-1 ring-[var(--claude-border)]'
+                : 'text-[var(--claude-text-secondary)] hover:text-[var(--claude-text-primary)]'
+            }`}
+          >
+            <Layout className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -320,7 +344,7 @@ export const CodeSidebar: React.FC<CodeSidebarProps> = ({
               onClick={() => setWorkspaceMenuOpen((v) => !v)}
               className="inline-flex items-center gap-1 rounded-md px-0.5 py-0.5 text-[12.5px] font-semibold text-[var(--claude-text-primary)] hover:bg-[var(--claude-sidebar-hover)]"
             >
-              <span>{activeWorkspace.name}</span>
+              <span>{activeWorkspace?.name ?? 'Aucun dossier ouvert'}</span>
               <ChevronDown className="h-3 w-3 text-[var(--claude-text-muted)]" />
             </button>
 
@@ -329,8 +353,20 @@ export const CodeSidebar: React.FC<CodeSidebarProps> = ({
                 className="claude-animate-popover absolute left-0 top-full z-40 mt-1 w-52 rounded-xl border border-[var(--claude-border)] bg-[var(--claude-bg-elevated)] p-1 text-[12.5px]"
                 style={{ boxShadow: 'var(--claude-popover-shadow)' }}
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceMenuOpen(false);
+                    onOpenFolderPicker();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[var(--claude-text-primary)] transition-colors hover:bg-[var(--claude-sidebar-hover)]"
+                >
+                  <FolderOpen className="h-3.5 w-3.5 text-[var(--claude-text-secondary)]" />
+                  <span>Ouvrir un dossier...</span>
+                </button>
+                <div className="h-px bg-[var(--claude-border)] my-1" />
                 <div className="px-2 py-1 text-[11px] font-medium text-[var(--claude-text-muted)]">
-                  Espaces de démonstration
+                  Espaces de travail
                 </div>
                 {workspaces.map((ws) => (
                   <button
@@ -341,7 +377,7 @@ export const CodeSidebar: React.FC<CodeSidebarProps> = ({
                       setWorkspaceMenuOpen(false);
                     }}
                     className={`flex w-full flex-col rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[var(--claude-sidebar-hover)] ${
-                      ws.id === activeWorkspace.id
+                      activeWorkspace && ws.id === activeWorkspace.id
                         ? 'bg-[var(--claude-sidebar-active)] font-medium'
                         : ''
                     }`}
