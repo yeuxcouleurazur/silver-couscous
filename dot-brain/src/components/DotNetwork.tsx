@@ -1377,7 +1377,7 @@ export function DotNetwork({
       </svg>
 
       {/* Indicateur discret d'angle d'orbite 360° (mis à jour via ref, zéro re-render) */}
-      {is3DMode && !selectedAgentId && (
+      {is3DMode && !selectedAgentId && containerSize.width >= 820 && (
         <div className="pointer-events-none absolute right-5 bottom-5 z-10 hidden items-center gap-2 text-[11.5px] text-[#827F77] dark:text-[#8E8B82] xl:flex">
           <span>Glisser pour pivoter à 360°</span>
           <span aria-hidden="true">·</span>

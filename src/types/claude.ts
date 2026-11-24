@@ -30,6 +30,7 @@ export interface Attachment {
   type: 'code' | 'document' | 'image' | 'text';
   mimeType: string;
   previewText?: string;
+  base64Data?: string;
   lineCount?: number;
 }
 
@@ -110,7 +111,9 @@ export interface Project {
   files: ProjectKnowledgeFile[];
 }
 
-export type AppSurfaceMode = 'code' | 'chat' | 'agents';
+export type AppSurfaceMode = 'code' | 'chat' | 'agents' | 'write';
+
+export type CodeSubPage = 'session' | 'customize' | 'projects' | 'permissions';
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'max';
 
@@ -124,13 +127,15 @@ export type SettingsSectionId =
   | 'appearance'
   | 'general'
   | 'models'
+  | 'permissions'
+  | 'local-pc'
   | 'notifications'
   | 'customize'
   | 'code'
   | 'fcc';
 
 export interface FccConnectionConfig {
-  mode: 'demo' | 'gemini' | 'fcc';
+  mode: 'gemini' | 'fcc';
   endpointUrl: string;
   workspaceLabel: string;
   sendWithCredentials: boolean;
@@ -218,6 +223,8 @@ export interface CodeTurn {
   completionTokens?: number;
   totalTokens?: number;
   estimatedCost?: number;
+  citations?: Citation[];
+  artifact?: Artifact;
   toolGroupSummary?: string;
   toolGroupAdditions?: number;
   toolGroupDeletions?: number;
@@ -262,15 +269,21 @@ export interface ToolCall {
   arguments: Record<string, unknown>;
 }
 
-/** Tool names available for the model to call. */
+/** Real tool names available for the model & agents to invoke. */
 export type ToolName =
   | 'read_file'
   | 'write_file'
   | 'edit_file'
+  | 'delete_file'
+  | 'move_file'
   | 'list_files'
   | 'run_command'
   | 'glob_files'
-  | 'search_files';
+  | 'search_files'
+  | 'git_status'
+  | 'git_diff'
+  | 'web_search'
+  | 'fetch_url';
 
 /** Tool result returned to the model after execution. */
 export interface ToolResult {
@@ -287,6 +300,10 @@ export interface ToolPermissionRequest {
   toolCall: ToolCall;
   status: 'pending' | 'approved-once' | 'approved-session' | 'denied';
   timestamp: number;
+  approvalId?: string;
+  permissionKey?: string;
+  summary?: string;
+  detail?: string;
 }
 
 export interface SideChatMessage {
@@ -310,6 +327,7 @@ export interface SideChatSession {
 export interface CodeSession {
   id: string;
   workspaceId: string;
+  projectId?: string | null;
   title: string;
   updatedAt: string;
   starred?: boolean;
@@ -335,4 +353,3 @@ export interface SlashCommandItem {
   alias?: string;
   hint?: string;
 }
-

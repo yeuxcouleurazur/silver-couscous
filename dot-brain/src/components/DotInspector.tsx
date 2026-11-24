@@ -14,6 +14,7 @@ import type {
   Agent,
   AgentActionType,
   Connection,
+  DotModelOption,
   Group,
 } from '../types/dotBrain';
 import {
@@ -29,6 +30,8 @@ interface DotInspectorProps {
   isIsolated: boolean;
   isDemoMode: boolean;
   isDark?: boolean;
+  availableModels?: DotModelOption[];
+  onAgentModelChange?: (agentId: string, modelId: string) => void;
   onClose: () => void;
   onSelectAgent: (agent: Agent) => void;
   onAgentAction: (agentId: string, actionType: AgentActionType) => void;
@@ -42,6 +45,8 @@ export function DotInspector({
   isIsolated,
   isDemoMode,
   isDark = false,
+  availableModels = [],
+  onAgentModelChange,
   onClose,
   onSelectAgent,
   onAgentAction,
@@ -137,10 +142,34 @@ export function DotInspector({
                     {agent.specialty}
                   </dd>
                 </div>
-                <div className="flex items-baseline justify-between gap-4">
+                <div className="flex items-center justify-between gap-4">
                   <dt className="text-[#6A6760] dark:text-[#A4A198]">Modèle</dt>
-                  <dd className="text-right font-mono text-[12px] text-[#1C1B19] dark:text-[#ECEAE4]">
-                    {agent.model}
+                  <dd className="text-right">
+                    {onAgentModelChange &&
+                    availableModels.filter((m) => m.id !== 'auto').length > 0 ? (
+                      <select
+                        aria-label={`Modèle de l’agent ${agent.name}`}
+                        data-testid="dot-inspector-model-select"
+                        value={agent.model}
+                        onChange={(e) => onAgentModelChange(agent.id, e.target.value)}
+                        className="max-w-[190px] rounded-md border border-[#DFDDD5] bg-[#FFFFFF] px-2 py-1 font-mono text-[11.5px] text-[#1C1B19] focus:outline-none focus:ring-1 focus:ring-[#D97757] dark:border-[#42423D] dark:bg-[#30302E] dark:text-[#ECEAE4] cursor-pointer"
+                      >
+                        {!availableModels.some((m) => m.id === agent.model) && (
+                          <option value={agent.model}>{agent.model}</option>
+                        )}
+                        {availableModels
+                          .filter((m) => m.id !== 'auto')
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.shortLabel ?? m.label}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      <span className="font-mono text-[12px] text-[#1C1B19] dark:text-[#ECEAE4]">
+                        {agent.model}
+                      </span>
+                    )}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4">

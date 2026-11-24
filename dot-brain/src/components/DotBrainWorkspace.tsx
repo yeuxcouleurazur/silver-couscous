@@ -44,6 +44,24 @@ export function DotBrainWorkspace({
   initialLayoutMode = 'brain',
   initialTheme,
   onThemeChange,
+  availableModels,
+  selectedModelId,
+  onModelChange,
+  onAgentModelChange,
+  effort,
+  onEffortChange,
+  permissionMode,
+  onPermissionModeChange,
+  workspaces,
+  activeWorkspaceId,
+  workspaceRootPath,
+  onSelectWorkspace,
+  onOpenFolderPicker,
+  attachedWorkspaceFiles,
+  onRemoveWorkspaceFile,
+  onToggleWorkspaceBrowser,
+  activeMissionPrompt: controlledActiveMissionPrompt,
+  composerPlaceholder,
   onAgentSelect,
   onMissionSubmit,
   onAgentAction,
@@ -98,6 +116,12 @@ export function DotBrainWorkspace({
   });
 
   const isDark = theme === 'dark';
+
+  useEffect(() => {
+    if (initialTheme) {
+      setTheme(initialTheme);
+    }
+  }, [initialTheme]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -378,7 +402,9 @@ export function DotBrainWorkspace({
 
   const handleMissionSubmit = useCallback(
     async (mission: MissionPayload) => {
-      setActiveMissionPrompt(mission.prompt);
+      if (controlledActiveMissionPrompt === undefined) {
+        setActiveMissionPrompt(mission.prompt);
+      }
       if (!isControlled) {
         setDemoState((prev) => {
           const reacted = applyDemoMissionReaction(
@@ -396,7 +422,7 @@ export function DotBrainWorkspace({
       await onMissionSubmit?.(mission);
       emitNetworkChange('mission-dispatch');
     },
-    [isControlled, onMissionSubmit, emitNetworkChange]
+    [controlledActiveMissionPrompt, isControlled, onMissionSubmit, emitNetworkChange]
   );
 
   // Raccourcis clavier discrets (Échap pour fermer l'inspecteur, R pour recentrer)
@@ -646,6 +672,8 @@ export function DotBrainWorkspace({
           }
           isDemoMode={resolvedDemoMode}
           isDark={isDark}
+          availableModels={availableModels}
+          onAgentModelChange={onAgentModelChange}
           onClose={() => handleAgentSelect(null)}
           onSelectAgent={(peer) => handleAgentSelect(peer)}
           onAgentAction={handleAgentAction}
@@ -653,11 +681,35 @@ export function DotBrainWorkspace({
 
         <MissionComposer
           onMissionSubmit={handleMissionSubmit}
-          activeMissionPrompt={activeMissionPrompt}
-          onClearActiveMission={() => setActiveMissionPrompt(null)}
+          activeMissionPrompt={
+            controlledActiveMissionPrompt !== undefined
+              ? controlledActiveMissionPrompt
+              : activeMissionPrompt
+          }
+          onClearActiveMission={
+            controlledActiveMissionPrompt === undefined
+              ? () => setActiveMissionPrompt(null)
+              : undefined
+          }
           isDemoMode={resolvedDemoMode}
           inspectorOpen={Boolean(selectedAgent)}
           leftPanelOpen={runningPanelOpen}
+          availableModels={availableModels}
+          selectedModelId={selectedModelId}
+          onModelChange={onModelChange}
+          effort={effort}
+          onEffortChange={onEffortChange}
+          permissionMode={permissionMode}
+          onPermissionModeChange={onPermissionModeChange}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          workspaceRootPath={workspaceRootPath}
+          onSelectWorkspace={onSelectWorkspace}
+          onOpenFolderPicker={onOpenFolderPicker}
+          attachedWorkspaceFiles={attachedWorkspaceFiles}
+          onRemoveWorkspaceFile={onRemoveWorkspaceFile}
+          onToggleWorkspaceBrowser={onToggleWorkspaceBrowser}
+          placeholder={composerPlaceholder}
         />
       </main>
     </div>

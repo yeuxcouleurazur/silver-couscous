@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelLeft, PanelRight, Paperclip, Plus, AlertCircle, CheckCircle, XCircle, Loader2, FolderOpen, ExternalLink } from 'lucide-react';
 import type {
   AppSurfaceMode,
@@ -153,10 +153,13 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    // Always fetch models: from FCC bridge when configured, or known Claude models as fallback
-    fetchFccModels(preferences.fcc.endpointUrl).then((models) => {
-      if (!cancelled) setFccModels(models);
-    });
+    if (preferences.fcc.mode === 'fcc' && preferences.fcc.endpointUrl.trim()) {
+      fetchFccModels(preferences.fcc.endpointUrl).then((models) => {
+        if (!cancelled) setFccModels(models);
+      });
+    } else {
+      setFccModels(getKnownClaudeModels());
+    }
     return () => {
       cancelled = true;
     };
@@ -1178,16 +1181,18 @@ export default function App() {
 
           <div className="min-w-0 flex-1 text-center">
             <span className="block truncate text-[14px] font-medium text-[var(--claude-text-primary)]">
-              {codeSubPage === 'customize'
-                ? 'Personnaliser'
-                : activeCodeSession
-                  ? activeCodeSession.title
-                  : 'Nouvelle session'}
+              {surfaceMode === 'agents'
+                ? 'Dot Brain — Agents'
+                : codeSubPage === 'customize'
+                  ? 'Personnaliser'
+                  : activeCodeSession
+                    ? activeCodeSession.title
+                    : 'Nouvelle session'}
             </span>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            {codeSubPage === 'session' && (
+            {surfaceMode !== 'agents' && codeSubPage === 'session' && (
               <button
                 type="button"
                 onClick={() =>
@@ -1221,6 +1226,30 @@ export default function App() {
                   <DotBrainSurface
                     fccMode={preferences.fcc.mode}
                     fccEndpointUrl={preferences.fcc.endpointUrl}
+                    sendWithCredentials={preferences.fcc.sendWithCredentials}
+                    theme={
+                      preferences.theme === 'dark' ||
+                      (preferences.theme === 'system' &&
+                        typeof window !== 'undefined' &&
+                        window.matchMedia('(prefers-color-scheme: dark)').matches)
+                        ? 'dark'
+                        : 'light'
+                    }
+                    onThemeChange={(nextTheme) =>
+                      setPreferences((prev) => ({ ...prev, theme: nextTheme }))
+                    }
+                    onOpenSettings={() => setSettingsTab('fcc')}
+                    modelId={modelId}
+                    onModelChange={setModelId}
+                    fccModels={fccModels}
+                    effort={effort}
+                    onEffortChange={setEffort}
+                    permissionMode={permissionMode}
+                    onPermissionModeChange={setPermissionMode}
+                    workspaces={workspaces}
+                    activeWorkspaceId={activeWorkspace.id}
+                    onSelectWorkspace={(wsId) => setActiveWorkspaceId(wsId)}
+                    onOpenFolderPicker={handleOpenFolderPicker}
                   />
                 ) : codeSubPage === 'customize' ? (
                   <CustomizeView onOpenFccSettings={() => setSettingsTab('fcc')} />
@@ -1339,7 +1368,7 @@ export default function App() {
               </div>
 
               {/* Right Split Pane: Rail / Changes Diff / Side Chat (/btw) / Terminal / Files / Preview */}
-              {codeSubPage === 'session' && rightPane !== 'none' && (
+              {surfaceMode !== 'agents' && codeSubPage === 'session' && rightPane !== 'none' && (
                 <CodeRightPane
                   mode={rightPane}
                   session={activeCodeSession}

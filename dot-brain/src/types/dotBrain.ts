@@ -91,12 +91,42 @@ export interface MissionAttachment {
   file?: File;
 }
 
+export interface DotModelOption {
+  id: string;
+  label: string;
+  shortLabel?: string;
+  provider?: string;
+  description?: string;
+}
+
+export type DotEffortLevel = 'low' | 'medium' | 'high' | 'max';
+
+export type DotPermissionMode = 'manual' | 'auto-edit' | 'plan';
+
+export interface DotWorkspaceOption {
+  id: string;
+  name: string;
+  pathLabel: string;
+  branch?: string;
+}
+
+export interface DotAttachedWorkspaceFile {
+  path: string;
+  size?: number;
+}
+
 export interface MissionPayload {
   id: string;
   prompt: string;
   mode: MissionMode;
   attachments: MissionAttachment[];
   submittedAt: string;
+  modelId?: string;
+  effort?: DotEffortLevel;
+  permissionMode?: DotPermissionMode;
+  workspaceId?: string;
+  workspaceName?: string;
+  workspacePath?: string;
 }
 
 export type AgentActionType =
@@ -167,6 +197,42 @@ export interface DotBrainWorkspaceProps extends DotBrainCallbacks {
   initialTheme?: ThemeMode;
   /** Callback appelé lors du changement de thème */
   onThemeChange?: (theme: ThemeMode) => void;
+  /** Modèles disponibles dans le sélecteur global et l'inspecteur de Dot */
+  availableModels?: DotModelOption[];
+  /** Modèle global sélectionné ('auto' ou identifiant de modèle) */
+  selectedModelId?: string;
+  /** Callback appelé lors du changement de modèle global */
+  onModelChange?: (modelId: string) => void;
+  /** Callback appelé lors du changement de modèle d'un Dot individuel */
+  onAgentModelChange?: (agentId: string, modelId: string) => void;
+  /** Niveau d'effort de raisonnement sélectionné */
+  effort?: DotEffortLevel;
+  /** Callback appelé lors du changement d'effort */
+  onEffortChange?: (effort: DotEffortLevel) => void;
+  /** Mode de permission sélectionné */
+  permissionMode?: DotPermissionMode;
+  /** Callback appelé lors du changement de mode de permission */
+  onPermissionModeChange?: (mode: DotPermissionMode) => void;
+  /** Dossiers / espaces de travail disponibles */
+  workspaces?: DotWorkspaceOption[];
+  /** Identifiant du dossier / espace de travail actif */
+  activeWorkspaceId?: string;
+  /** Chemin réel du dossier racine côté serveur (si disponible) */
+  workspaceRootPath?: string;
+  /** Sélectionner un espace de travail */
+  onSelectWorkspace?: (workspaceId: string) => void;
+  /** Ouvrir le sélecteur de dossier local */
+  onOpenFolderPicker?: () => void;
+  /** Fichiers du dossier actif joints au contexte de la prochaine mission */
+  attachedWorkspaceFiles?: DotAttachedWorkspaceFile[];
+  /** Retirer un fichier de dossier joint */
+  onRemoveWorkspaceFile?: (filePath: string) => void;
+  /** Ouvrir ou fermer l'explorateur de dossier intégré */
+  onToggleWorkspaceBrowser?: () => void;
+  /** Prompt de mission active piloté par l'hôte (null/undefined masque le bandeau pendant un pré-dialogue) */
+  activeMissionPrompt?: string | null;
+  /** Placeholder personnalisé pour le champ de saisie */
+  composerPlaceholder?: string;
   /** Classe CSS additionnelle pour le conteneur racine */
   className?: string;
 }

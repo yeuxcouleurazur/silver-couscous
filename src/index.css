@@ -41,6 +41,7 @@
   --cds-warning-bg: rgba(224, 145, 46, 0.12);
 
   --font-serif-claude: "Newsreader", "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-serif: "Newsreader", "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-sans-claude: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono-claude: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -248,6 +249,56 @@ body,
 @keyframes agent-line-pulse {
   0%, 100% { opacity: 0.9; }
   50% { opacity: 0.45; }
+}
+
+/* Dot Brain status ring animations */
+@keyframes dot-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.42);
+    opacity: 0.16;
+  }
+}
+
+@keyframes dot-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dot-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.58;
+  }
+  100% {
+    transform: scale(1.95);
+    opacity: 0;
+  }
+}
+
+.dot-anim-breathe {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-breathe 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.dot-anim-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-orbit 6s linear infinite;
+}
+
+.dot-anim-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-ripple 2.1s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 /* Respect reduced motion */

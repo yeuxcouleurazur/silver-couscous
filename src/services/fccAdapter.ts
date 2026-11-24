@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   Artifact,
   Attachment,
   Citation,
@@ -25,9 +25,11 @@ export interface SendMessagePayload {
   attachments: Attachment[];
   history?: ConversationHistoryTurn[];
   effort?: EffortLevel;
-  mode?: 'main' | 'btw';
+  mode?: 'main' | 'btw' | 'write';
+  projectId?: string;
   projectName?: string;
   projectInstructions?: string;
+  systemPrompt?: string;
   permissionMode?: PermissionMode;
 }
 
@@ -219,6 +221,7 @@ export class GeminiApiAdapter implements ClaudeTransportAdapter {
         permissionMode: payload.permissionMode,
         effort: payload.effort,
         mode: payload.mode ?? 'main',
+        systemPrompt: payload.systemPrompt,
         attachments: payload.attachments.map((a) => ({
           name: a.name,
           previewText: a.previewText,

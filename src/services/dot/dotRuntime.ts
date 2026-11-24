@@ -21,22 +21,41 @@ interface ExecuteParams {
   missionDescription: string;
   context?: string; // additional context from previous steps / messages
   modelOverride?: string; // optional model override
+  effort?: 'low' | 'medium' | 'high' | 'max';
+  permissionMode?: 'manual' | 'auto-edit' | 'plan';
+  signal?: AbortSignal; // mission abort signal
+  onDelta?: (delta: string, accumulated: string) => void;
 }
 
 /** Execute a single step by its assigned agent using a real model call. */
 export async function executeAgentStep(params: ExecuteParams): Promise<LLMCallResponse> {
-  const { adapter, agent, step, missionId, missionTitle, missionDescription, context, modelOverride } = params;
+  const {
+    adapter,
+    agent,
+    step,
+    missionId,
+    missionTitle,
+    missionDescription,
+    context,
+    modelOverride,
+    effort = 'low',
+    permissionMode = 'manual',
+    signal,
+    onDelta,
+  } = params;
   const model = modelOverride ?? agent.config.model;
 
-  agentStatusChanged(agent.id, 'working');
+  agentStatusChanged(agent.id, 'working', missionId);
 
-  const systemPrompt = agent.config.systemPrompt || `Tu es l'agent ${agent.name} (${agent.role}). Tu exécutes des tâches de manière autonome et produis des résultats concrets.`;
+  const systemPrompt =
+    agent.config.systemPrompt ||
+    `Tu es l'agent ${agent.name} (${agent.role}). Tu exécutes des tâches de manière autonome et produis des résultats concrets, structurés et concis en français.`;
 
   const contextSection = context
     ? `\n\nCONTEXTE (étapes précédentes / messages):\n${context}\n`
     : '';
 
-  const prompt = `# Mission: ${missionTitle}\n${missionDescription}\n\n# Étape: ${step.title}\nObjectif: ${step.description}${contextSection}\n\nProduis le résultat de cette étape. Sois précis, complet et structuré.`;
+  const prompt = `# Mission: ${missionTitle}\n${missionDescription}\n\n# Étape: ${step.title}\nObjectif: ${step.description}${contextSection}\n\nProduis le résultat de cette étape en français. Sois précis, concret et bien structuré (format Markdown concis).`;
 
   const request: LLMCallRequest = {
     agentId: agent.id,
@@ -45,7 +64,7 @@ export async function executeAgentStep(params: ExecuteParams): Promise<LLMCallRe
     model,
     temperature: agent.config.temperature,
     maxTokens: agent.config.maxTokens,
-    stream: false,
+    stream: true,
   };
 
   let content = '';
@@ -54,42 +73,61 @@ export async function executeAgentStep(params: ExecuteParams): Promise<LLMCallRe
   let durationMs = 0;
 
   const start = Date.now();
+  const effectiveSignal = signal ?? new AbortController().signal;
+
   try {
     const stream = adapter.sendMessageStream(
       {
         conversationId: `mission-${missionId}-agent-${agent.id}-step-${step.id}`,
         prompt: request.prompt,
+        systemPrompt: request.systemPrompt,
         modelId: request.model,
         tools: {
           webSearch: false,
-          extendedThinking: false,
+          extendedThinking: effort === 'high' || effort === 'max',
           artifacts: false,
           responseStyle: 'normal',
         },
         attachments: [],
         history: [],
         projectName: missionTitle,
-        effort: 'medium',
+        effort,
         mode: 'main',
-        permissionMode: 'manual',
+        permissionMode,
       },
-      new AbortController().signal,
+      effectiveSignal,
     );
 
     for await (const event of stream) {
+      if (effectiveSignal.aborted) {
+        error = 'Exécution interrompue';
+        break;
+      }
       if (event.type === 'text_delta') {
         content += event.delta;
+        onDelta?.(event.delta, content);
+      } else if (event.type === 'usage') {
+        tokensUsed = event.usage.totalTokens;
       } else if (event.type === 'error') {
         error = event.message;
         break;
       } else if (event.type === 'done') {
-        break;
+        // Continue briefly in case usage event follows done
+        continue;
       }
     }
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Erreur d\'exécution inconnue';
+    if (effectiveSignal.aborted) {
+      error = 'Exécution interrompue';
+    } else {
+      error = err instanceof Error ? err.message : 'Erreur d\'exécution inconnue';
+    }
   }
   durationMs = Date.now() - start;
+
+  if (tokensUsed === undefined && content.length > 0) {
+    tokensUsed = Math.max(1, Math.ceil((request.prompt.length + content.length) / 4));
+  }
 
   const response: LLMCallResponse = {
     content: error ? '' : content,

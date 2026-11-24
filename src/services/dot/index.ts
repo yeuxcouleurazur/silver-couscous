@@ -9,6 +9,12 @@ export {
   dotBrain,
   init,
   reconfigure,
+  checkProviderConnection,
+  getActiveProviderModel,
+  getAvailableProviderModels,
+  resolveStepModel,
+  setAgentModel,
+  streamOrchestratorChat,
   getProviderStateInfo,
   decomposeMission,
   createMission,
@@ -16,9 +22,22 @@ export {
   pauseMission,
   resumeMission,
   stopMission,
+  controlAgent,
   getRunningMission,
+  getMissionById,
   buildExecutionGraph,
+  setAdapterForTesting,
+  type DotMissionMode,
+  type OrchestratorChatParams,
 } from './dotBrain';
+
+export {
+  isLaunchCommand,
+  buildMissionBriefFromConversation,
+  buildOrchestratorSystemPrompt,
+  type DotChatMessage,
+  type OrchestratorPromptContext,
+} from './dotConversation';
 
 // Communication
 export {

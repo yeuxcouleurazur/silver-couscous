@@ -140,7 +140,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   planLabel: '',
   sendWithEnter: true,
   fcc: {
-    mode: 'fcc',
+    mode: 'gemini',
     endpointUrl: 'http://localhost:8787/v1/claude/stream',
     workspaceLabel: '',
     sendWithCredentials: false,
